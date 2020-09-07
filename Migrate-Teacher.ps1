@@ -1,4 +1,6 @@
-﻿<#
+﻿function Start-TeacherMigration
+{
+<#
  .Synopsis
   Creates teachers in Microsoft Teams.
 
@@ -24,9 +26,6 @@
   # Creates students in asv.
   Start-TeacherMigration -data $data -AADUserOutput C:\users\docuemtns\created-teachers.csv -Suffix myschool.tld
 #>
-
-function Start-TeacherMigration
-{
   param
   (
     [parameter(

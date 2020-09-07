@@ -1,4 +1,6 @@
-﻿<#
+﻿function Start-StudentMigration
+{
+<#
  .Synopsis
   Creates students in Microsoft Teams.
 
@@ -24,8 +26,6 @@
   # Creates students in asv.
   Start-StudentMigration -data $data -AADUserOutput C:\users\docuemtns\created-students.csv -Suffix myschool.tld
 #>
-function Start-StudentMigration
-{
   param
   (
     [parameter(
@@ -70,7 +70,7 @@ function Start-StudentMigration
         $vorname = Remove-DiacriticsAndSpaces $kl.Vorname
         $nachname = Remove-DiacriticsAndSpaces $kl.Familienname
         $gebdat = $kl.GebDatum.Split(".")[2]
-        $upn = "$vorname.$nachname.schueler@$Suffix"        
+        $upn = "{0}.{1}.{2}.schueler@{3}" -f $vorname,$nachname,$gebdat,$Suffix
         $klasse = $k.Klassenname
         $anrede = $kl.Anschriftstext
         $anschrift = $kl.Strasse
@@ -100,7 +100,7 @@ function Start-StudentMigration
           {
             Write-Host "[CREATE] Create user $vorname $nachname"
         
-            $aad = New-AzureADUser -DisplayName ("$vorname $nachname") -GivenName $vorname -Surname $nachname -UserPrincipalName $upn -PasswordProfile $PasswordProfile -MailNickName $upn.Split("@")[0] -AccountEnabled $true -UsageLocation DE
+            $aad = New-AzureADUser -DisplayName ("$nachname $vorname") -GivenName $vorname -Surname $nachname -UserPrincipalName $upn -PasswordProfile $PasswordProfile -MailNickName $upn.Split("@")[0] -AccountEnabled $true -UsageLocation DE
             Set-AzureADUserLicense -ObjectId $aad.ObjectId -AssignedLicenses $LicensesToAssign      
           
             $luser | Add-Member -MemberType NoteProperty -Name UPN -Value $aad.UserPrincipalName

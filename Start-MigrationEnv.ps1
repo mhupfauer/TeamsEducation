@@ -1,9 +1,9 @@
 ﻿function Start-MigrationEnv
 {
-  Write-Host -ForegroundColor Yellow "[Notice] Your account needs to be global administrator of the O365 tenant."
+  Write-Verbose -Message '[Notice] Your account needs to be global administrator of the O365 tenant.'
   Start-Sleep -Seconds 2
   $mfa = Read-Host -Prompt 'Does your account use Multi-Factor Authentication? | [y]es, [n]o'
-  if($mfa.ToString() -eq "n")
+  if($mfa.ToString() -eq 'n')
   {
     $cred = Get-Credential
   }

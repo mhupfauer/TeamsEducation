@@ -1,40 +1,28 @@
-﻿<#
-    .Synopsis
-    Creates class teams in Microsoft Teams.
-
-    .Description
-    Reads ASV Data from Get-DataFromAsvXml and creates classes based on Unterrichtselemente.
-    Has to be run after Start-StudentMigration and Start-TeacherMigration, otherwise there will be no users / teachers inside the teams.
-
-    .Parameter data
-    Object returned from Get-DataFromAsvXml
- 
-    .Parameter Suffix
-    Suffix after @ in UPN firstname.lastname@SUFFIX (somedomain.tld)
-
-    .Parameter IncludeSeniors
-    Wether or not to import classes from 11th or 12th form
-
-    .Example
-    # Creates class teams
-    Start-ClassMigration -data $data -Suffix myschool.tld -IncludeSeniors $false
-#>
-
-function Generate-ClassToGroupHashTable($data)
-{
-    $klassendata = @{}
-    foreach ($k in $data.Klassen)
+﻿function Generate-ClassToGroupHashTable
+{ 
+  param
+  (
+    [Parameter(Mandatory=$true)]
+    $data
+  )
+  $klassendata = @{}
+  foreach ($k in $data.Klassen)
+  {
+    foreach ($kg in $k.KlassenGruppen)
     {
-      foreach ($kg in $k.KlassenGruppen)
-      {
-        $klassendata.Add([int]$kg.KlassenGruppenId, $k.Klassenname)
-      }
+      $klassendata.Add([int]$kg.KlassenGruppenId, $k.Klassenname)
     }
-    return $klassendata
+  }
+  return $klassendata
 }
 
-function Generate-ClassGroupsToStudentHashTable($data)
+function Generate-ClassGroupsToStudentHashTable
 {
+  param
+  (
+    [Parameter(Mandatory=$true)]
+    $data
+  )
   $students = @{}
   foreach ($s in $data.Klassen.Klassengruppen)
   {
@@ -69,7 +57,7 @@ function Generate-SchuelerIdToObjTable()
     {
       foreach($schueler in $klassengruppe.Klassenliste)
       {
-        $upn =  '{0}.{1}.schueler@{2}' -f (Remove-DiacriticsAndSpaces $schueler.Vorname),(Remove-DiacriticsAndSpaces $schueler.Familienname),$Suffix
+        $upn =  '{0}.{1}.{2}.schueler@{3}' -f (Remove-DiacriticsAndSpaces $schueler.Vorname),$schueler.GebDatum,(Remove-DiacriticsAndSpaces $schueler.Familienname),$Suffix
         $SchuelerIdToObjTable.($schueler.SchuelerId) += @(($aadusers.$upn))
       }
     }
@@ -106,6 +94,27 @@ function Generate-TeacherIdToObjTable()
 }
 function Start-ClassMigration
 {
+<#
+    .Synopsis
+    Creates class teams in Microsoft Teams.
+
+    .Description
+    Reads ASV Data from Get-DataFromAsvXml and creates classes based on Unterrichtselemente.
+    Has to be run after Start-StudentMigration and Start-TeacherMigration, otherwise there will be no users / teachers inside the teams.
+
+    .Parameter data
+    Object returned from Get-DataFromAsvXml
+ 
+    .Parameter Suffix
+    Suffix after @ in UPN firstname.lastname@SUFFIX (somedomain.tld)
+
+    .Parameter IncludeSeniors
+    Wether or not to import classes from 11th or 12th form
+
+    .Example
+    # Creates class teams
+    Start-ClassMigration -data $data -Suffix myschool.tld -IncludeSeniors $false
+#>
   param
   (
     [parameter(
@@ -122,8 +131,8 @@ function Start-ClassMigration
 
   $allusers = Get-AadUserHashTable
   
-  $groupToClass = Generate-ClassToGroupHashTable($Data)
-  $groupToStudents = Generate-ClassGroupsToStudentHashTable ($Data)
+  $groupToClass = Generate-ClassToGroupHashTable -data $Data
+  $groupToStudents = Generate-ClassGroupsToStudentHashTable -data $Data
   
   $schuelerToObj = Generate-SchuelerIdToObjTable -data $Data -aadusers $allusers -Suffix $Suffix
   $teacherToObj = Generate-TeacherIdToObjTable -data $Data -aadusers $allusers -Suffix $Suffix
@@ -134,13 +143,9 @@ function Start-ClassMigration
     $klasse = $groupToClass.[int]$_.KlassenGruppeId
     $lehrkraft = $_.LehrkraftId
     
-    if(!$IncludeSeniors -and 
-    ( ($fach -match "11" -or $fach -match "12") -or ($klasse -match "11" -or $klasse -match "12") ))
-    {
-      # For performance reasons it's like this.
-    } else
+    if(! (!$IncludeSeniors -and ($klasse -match '11' -or $klasse -match '12')) )
     {      
-      $key = (($Data.Faecher.[int]$_.FachId) + "." + $klasse)
+      $key = (($Data.Faecher.[int]$_.FachId) + '.' + $klasse)
       
       $val = New-Object PSObject
       $val | Add-Member -MemberType NoteProperty -Name Klassenliste -Value ($groupToStudents.[int]$_.KlassenGruppeId)
@@ -154,15 +159,15 @@ function Start-ClassMigration
       {
         $out.Add($key, $val)
       }
-    }
+    } 
   }
   
   foreach($o in $out.GetEnumerator()) 
   { 
-    $fach,$klasse = $o.Key.Split(".")
+    $fach,$klasse = $o.Key.Split('.')
     
     $teacher = $teacherToObj.($o.Value.Lehrkraft)
-    $team = New-Team -DisplayName ("$klasse - $fach") -Template EDU_Class -Owner $teacher[0].ToString()
+    $team = New-Team -DisplayName ("{0} - {1}" -f $klasse,$fach) -Template EDU_Class -Owner $teacher[0].ToString()
     
     foreach ($s in $o.Value.Klassenliste)
     {

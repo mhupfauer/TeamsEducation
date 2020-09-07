@@ -1,34 +1,20 @@
-﻿<#
- .Synopsis
-  Reads ASV Data and returns a custom object.
-
- .Description
-  Returns ASV Data as custom object readable by this module
-
- .Parameter XMLPath
-  Path to export.csv (C:\export\export.xml)
-
- .Example
-  # Get data from asv and store in $data.
-  $data Get-DataFromAsvXml -XMLPath C:\users\myuser\Documents\ASV-Export\export.xml
-#>
-
-
-function createXmlObj ($XMLPath)
+﻿function createXmlObj
 {
-  $asv = New-Object System.Xml.XmlDocument
+  param
+  (
+    $XMLPath
+  )
+  $asv = New-Object -TypeName System.Xml.XmlDocument
   $asv.Load($XMLPath)
   return $asv
 }
 
 function transformAsvData
 {
-
   param
   (
     $asvData
   )
-  
   $base = $asvData.asv_export.schulen.schule
   $unterrichts = @()
   $klassen = @()
@@ -38,31 +24,31 @@ function transformAsvData
   foreach($i in $base.unterrichtselemente.unterrichtselement)
   {
     if($i.klassengruppe_id -eq $null){continue}
-    $objin = New-Object PSObject
+    $objin = New-Object -TypeName PSObject
     $objin | Add-Member -MemberType NoteProperty -Name SynKey -Value ($i.lehrkraft_id + "." + $i.klassengruppe_id + "." + $i.fach_id )
     $objin | Add-Member -MemberType NoteProperty -Name Id -Value $i.xml_id
-    $objin | Add-Member -MemberType NoteProperty -Name LehrkraftId $i.lehrkraft_id
-    $objin | Add-Member -MemberType NoteProperty -Name KlassenGruppeId $i.klassengruppe_id
-    $objin | Add-Member -MemberType NoteProperty -Name FachId $i.fach_id
+    $objin | Add-Member -MemberType NoteProperty -Name LehrkraftId -Value $i.lehrkraft_id
+    $objin | Add-Member -MemberType NoteProperty -Name KlassenGruppeId -Value $i.klassengruppe_id
+    $objin | Add-Member -MemberType NoteProperty -Name FachId -Value $i.fach_id
     $unterrichts += $objin
   }
 
   foreach($s in $base.klassen.klasse)
   {
-    $objin = New-Object PSObject
+    $objin = New-Object -TypeName PSObject
     $objin | Add-Member -MemberType NoteProperty -Name Id -Value $s.xml_id
     $objin | Add-Member -MemberType NoteProperty -Name Klassenname -Value $s.klassenname_lang."#cdata-section"
     
     $klassengruppen = @()
     foreach ($k in $s.klassengruppen.klassengruppe)
     {
-      $klassendata = New-Object psobject
+      $klassendata = New-Object -TypeName psobject
       $klassendata | Add-Member -MemberType NoteProperty -Name KlassenGruppenId -Value $k.xml_id
       
       $schueler = @()
       foreach ($ss in $k.schuelerliste.schuelerin)
       {
-        $schuelerdata = New-Object PSObject
+        $schuelerdata = New-Object -TypeName PSObject
         
         $schuelerdata | Add-Member -MemberType NoteProperty -Name SchuelerId -Value $ss.xml_id
         
@@ -114,7 +100,7 @@ function transformAsvData
   
   foreach($t in $asvData.asv_export.lehrkraftdaten_nicht_schulbezogen_liste.lehrkraftdaten_nicht_schulbezogen)
   {
-    $objin = New-Object PSObject
+    $objin = New-Object -TypeName PSObject
     $objin | Add-Member -MemberType NoteProperty -Name TeacherId -Value $lehrerMap.Get_item([int]$t.xml_id)
     
     $vorname = ($t.vornamen."#cdata-section".split(" "))[0]
@@ -125,8 +111,8 @@ function transformAsvData
     $teacher += $objin
   }
   
-  $out = New-Object PSObject
-  $out | Add-Member -MemberType NoteProperty -Name Unterrichtselemente -Value ($unterrichts | Sort-Object -Unique SynKey)
+  $out = New-Object -TypeName PSObject
+  $out | Add-Member -MemberType NoteProperty -Name Unterrichtselemente -Value ($unterrichts | Sort-Object -Unique -Property SynKey)
   $out | Add-Member -MemberType NoteProperty -Name Klassen -Value $klassen
   $out | Add-Member -MemberType NoteProperty -Name Faecher -Value $faecher
   $out | Add-Member -MemberType NoteProperty -Name Lehrer -Value $teacher
@@ -134,8 +120,27 @@ function transformAsvData
     
 }
 
-function Get-DataFromAsvXml([String]$XMPath)
+function Get-DataFromAsvXml
 {
-  $asv = createXmlObj($XMPath)
+<#
+ .Synopsis
+  Reads ASV Data and returns a custom object.
+
+ .Description
+  Returns ASV Data as custom object readable by this module
+
+ .Parameter XMLPath
+  Path to export.csv (C:\export\export.xml)
+
+ .Example
+  # Get data from asv and store in $data.
+  $data Get-DataFromAsvXml -XMLPath C:\users\myuser\Documents\ASV-Export\export.xml
+#>
+  param
+  (
+    [string]
+    $XMPath
+  )
+  $asv = createXmlObj -XMLPath $XMPath
   return transformAsvData -asvData $asv
 }
