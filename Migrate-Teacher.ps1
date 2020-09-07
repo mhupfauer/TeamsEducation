@@ -52,7 +52,7 @@
   
   $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
   $PasswordProfile.ForceChangePasswordNextLogin = $true
-  $LicensesToAssign = Get-LicensesToAssign -Plans @('STANDARDWOFFPACK_FACULTY', 'OFFICESUBSCRIPTION_FACULTY')
+  $LicensesToAssign = Get-LicensesToAssign -Plans @('STANDARDWOFFPACK_FACULTY')
 
   foreach ($l in $data.Lehrer)
   {

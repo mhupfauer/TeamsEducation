@@ -57,7 +57,7 @@ function Generate-SchuelerIdToObjTable()
     {
       foreach($schueler in $klassengruppe.Klassenliste)
       {
-        $upn =  '{0}.{1}.{2}.schueler@{3}' -f (Remove-DiacriticsAndSpaces $schueler.Vorname),$schueler.GebDatum,(Remove-DiacriticsAndSpaces $schueler.Familienname),$Suffix
+        $upn =  '{0}.{1}.schueler@{2}' -f (Remove-DiacriticsAndSpaces $schueler.Vorname),(Remove-DiacriticsAndSpaces $schueler.Familienname),$Suffix
         $SchuelerIdToObjTable.($schueler.SchuelerId) += @(($aadusers.$upn))
       }
     }
