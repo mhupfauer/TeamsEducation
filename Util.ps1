@@ -94,3 +94,26 @@ function Get-ExemptList
   }
   return $listout
 }
+
+function Get-NullSaveStrFromHashTable
+{
+  param
+  (
+    [parameter(Mandatory=$true)]
+    $Table,
+    [parameter(Mandatory=$true)]
+    $LookupKey,
+    $FallbackString
+  )
+  
+    $outObj = $Table.$LookupKey
+    if($outObj -eq $null)
+    {
+      $out = $FallbackString
+    }
+    else
+    {
+      $out = $outObj.ToString()
+    }
+    return $out
+}

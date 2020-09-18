@@ -13,7 +13,8 @@ function transformAsvData
 {
   param
   (
-    $asvData
+    $asvData,
+    $longClassNames
   )
   $base = $asvData.asv_export.schulen.schule
   $unterrichts = @()
@@ -23,13 +24,26 @@ function transformAsvData
   
   foreach($i in $base.unterrichtselemente.unterrichtselement)
   {
-    if($i.klassengruppe_id -eq $null){continue}
+    if($i.klassengruppe_id -eq $null)
+    {
+      continue
+    }
+    
+    $koppel = $true
+    if($null -ne $i.koppel) 
+    { 
+      $koppel = $i.koppel.is_pseudokoppel."#cdata-section"
+    }
+    
     $objin = New-Object -TypeName PSObject
-    $objin | Add-Member -MemberType NoteProperty -Name SynKey -Value ($i.lehrkraft_id + "." + $i.klassengruppe_id + "." + $i.fach_id )
+    $objin | Add-Member -MemberType NoteProperty -Name SynKey -Value ($i.lehrkraft_id + "." + $i.klassengruppe_id +"." + $i.fach_id )
     $objin | Add-Member -MemberType NoteProperty -Name Id -Value $i.xml_id
     $objin | Add-Member -MemberType NoteProperty -Name LehrkraftId -Value $i.lehrkraft_id
     $objin | Add-Member -MemberType NoteProperty -Name KlassenGruppeId -Value $i.klassengruppe_id
     $objin | Add-Member -MemberType NoteProperty -Name FachId -Value $i.fach_id
+    $objin | Add-Member -MemberType NoteProperty -Name Bezeichnung -Value $i.bezeichnung."#cdata-section"    
+    $objin | Add-Member -MemberType NoteProperty -Name IsPseudoKoppel -Value ([System.Convert]::ToBoolean($koppel))
+    
     $unterrichts += $objin
   }
 
@@ -37,7 +51,14 @@ function transformAsvData
   {
     $objin = New-Object -TypeName PSObject
     $objin | Add-Member -MemberType NoteProperty -Name Id -Value $s.xml_id
-    $objin | Add-Member -MemberType NoteProperty -Name Klassenname -Value $s.klassenname_lang."#cdata-section"
+    if($longClassNames)
+    {
+      $objin | Add-Member -MemberType NoteProperty -Name Klassenname -Value $s.klassenname_lang."#cdata-section"
+    }
+    else
+    {
+      $objin | Add-Member -MemberType NoteProperty -Name Klassenname -Value $s.klassenname."#cdata-section"
+    }
     
     $klassengruppen = @()
     foreach ($k in $s.klassengruppen.klassengruppe)
@@ -110,9 +131,9 @@ function transformAsvData
     $objin | Add-Member -MemberType NoteProperty -Name Familienname -Value $familienname
     $teacher += $objin
   }
-  
+    
   $out = New-Object -TypeName PSObject
-  $out | Add-Member -MemberType NoteProperty -Name Unterrichtselemente -Value ($unterrichts | Sort-Object -Unique -Property SynKey)
+  $out | Add-Member -MemberType NoteProperty -Name Unterrichtselemente -Value ($unterrichts | Sort-Object -Property SynKey | Get-Unique -AsString)
   $out | Add-Member -MemberType NoteProperty -Name Klassen -Value $klassen
   $out | Add-Member -MemberType NoteProperty -Name Faecher -Value $faecher
   $out | Add-Member -MemberType NoteProperty -Name Lehrer -Value $teacher
@@ -122,25 +143,29 @@ function transformAsvData
 
 function Get-DataFromAsvXml
 {
-<#
- .Synopsis
-  Reads ASV Data and returns a custom object.
+  <#
+      .Synopsis
+      Reads ASV Data and returns a custom object.
 
- .Description
-  Returns ASV Data as custom object readable by this module
+      .Description
+      Returns ASV Data as custom object readable by this module
 
- .Parameter XMLPath
-  Path to export.csv (C:\export\export.xml)
+      .Parameter XMLPath
+      Path to export.csv (C:\export\export.xml)
 
- .Example
-  # Get data from asv and store in $data.
-  $data Get-DataFromAsvXml -XMLPath C:\users\myuser\Documents\ASV-Export\export.xml
-#>
+      .Parameter LongClassNames
+      If $true (default) long classnames will be used. If $false short versions will be used.
+
+      .Example
+      # Get data from asv and store in $data.
+      $data Get-DataFromAsvXml -XMLPath C:\users\myuser\Documents\ASV-Export\export.xml
+  #>
   param
   (
-    [string]
-    $XMPath
+    [Parameter(Mandatory = $true)]
+    [string]$XMPath,
+    [bool]$LongClassNames = $true    
   )
   $asv = createXmlObj -XMLPath $XMPath
-  return transformAsvData -asvData $asv
+  return transformAsvData -asvData $asv -longClassNames $LongClassNames
 }
