@@ -68,6 +68,9 @@ PrivateData = @{
         ReleaseNotes = '* 0.9.1 => Added functionality to retire teams / users from the previous school year.
 * Initial release.'
 
+        # Prerelease string of this module
+        Prerelease = 'This a technical preview. Not fully tested yet!'
+
         # Flag to indicate whether the module requires explicit user acceptance for install/update
         RequireLicenseAcceptance = $true
 
