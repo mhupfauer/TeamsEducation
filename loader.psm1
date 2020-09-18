@@ -13,5 +13,4 @@
 . $PSScriptRoot\Migrate-Classes.ps1
 . $PSScriptRoot\Migrate-Students.ps1
 . $PSScriptRoot\Migrate-Teacher.ps1
-. $PSScriptRoot\Retire-SchoolYear.ps1
 . $PSScriptRoot\Util.ps1

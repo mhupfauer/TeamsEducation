@@ -45,7 +45,7 @@ RequiredModules = @('AzureADPreview','MicrosoftTeams','MSOnline')
 
 
 # List of exportable functions
-FunctionsToExport = @('Start-MigrationEnv', 'Start-ClassMigration', 'Start-StudentMigration', 'Start-TeacherMigration','Get-DataFromAsvXml','Close-LegacyTeams')
+FunctionsToExport = @('Start-MigrationEnv', 'Start-ClassMigration', 'Start-StudentMigration', 'Start-TeacherMigration','Get-DataFromAsvXml')
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
 PrivateData = @{
