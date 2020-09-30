@@ -14,7 +14,7 @@
 RootModule = 'loader.psm1'
 
 # Version Number
-ModuleVersion = '0.8'
+ModuleVersion = '0.9.1'
 
 # Unique Module ID
 GUID = '6d939bc7-10d8-4fba-9ffe-d24c88e892c1'
@@ -65,7 +65,11 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = '* Initial release.'
+        ReleaseNotes = '* 0.9.1 => Added functionality to retire teams / users from the previous school year.
+* Initial release.'
+
+        # Prerelease string of this module
+        Prerelease = 'This a technical preview. Not fully tested yet!'
 
         # Flag to indicate whether the module requires explicit user acceptance for install/update
         RequireLicenseAcceptance = $true

@@ -57,7 +57,7 @@ function Generate-SchuelerIdToObjTable()
     {
       foreach($schueler in $klassengruppe.Klassenliste)
       {
-        $upn =  '{0}.{1}.schueler@{2}' -f (Remove-DiacriticsAndSpaces $schueler.Vorname),(Remove-DiacriticsAndSpaces $schueler.Familienname),$Suffix
+        $upn =  '{0}.{1}.{2}.schueler@{3}' -f (Remove-DiacriticsAndSpaces $schueler.Vorname),(Remove-DiacriticsAndSpaces $schueler.Familienname),($schueler.GebDatum).Split(".")[2],$Suffix
         $SchuelerIdToObjTable.($schueler.SchuelerId) += @(($aadusers.$upn))
       }
     }
@@ -94,27 +94,27 @@ function Generate-TeacherIdToObjTable()
 }
 function Start-ClassMigration
 {
-<#
-    .Synopsis
-    Creates class teams in Microsoft Teams.
+  <#
+      .Synopsis
+      Creates class teams in Microsoft Teams.
 
-    .Description
-    Reads ASV Data from Get-DataFromAsvXml and creates classes based on Unterrichtselemente.
-    Has to be run after Start-StudentMigration and Start-TeacherMigration, otherwise there will be no users / teachers inside the teams.
+      .Description
+      Reads ASV Data from Get-DataFromAsvXml and creates classes based on Unterrichtselemente.
+      Has to be run after Start-StudentMigration and Start-TeacherMigration, otherwise there will be no users / teachers inside the teams.
 
-    .Parameter data
-    Object returned from Get-DataFromAsvXml
+      .Parameter data
+      Object returned from Get-DataFromAsvXml
  
-    .Parameter Suffix
-    Suffix after @ in UPN firstname.lastname@SUFFIX (somedomain.tld)
+      .Parameter Suffix
+      Suffix after @ in UPN firstname.lastname@SUFFIX (somedomain.tld)
 
-    .Parameter IncludeSeniors
-    Wether or not to import classes from 11th or 12th form
+      .Parameter IncludeSeniors
+      Wether or not to import classes from 11th or 12th form
 
-    .Example
-    # Creates class teams
-    Start-ClassMigration -data $data -Suffix myschool.tld -IncludeSeniors $false
-#>
+      .Example
+      # Creates class teams
+      Start-ClassMigration -data $data -Suffix myschool.tld -IncludeSeniors $false
+  #>
   param
   (
     [parameter(
@@ -126,7 +126,12 @@ function Start-ClassMigration
         Mandatory = $true
     )]
     $Suffix,
-    [bool]$IncludeSeniors = $false
+    [parameter(
+        Mandatory=$true
+    )]
+    $FallbackOwner,
+    [bool]$IncludeSeniors = $false,
+    $WhatIf = $false
   )
 
   $allusers = Get-AadUserHashTable
@@ -141,38 +146,67 @@ function Start-ClassMigration
   $Data.Unterrichtselemente | % {
     
     $klasse = $groupToClass.[int]$_.KlassenGruppeId
+    if($null -eq $klasse)
+    {
+      Write-Host "[DBG] NO class found for id: $($_.KlassenGruppeId)"
+    }
     $lehrkraft = $_.LehrkraftId
     
     if(! (!$IncludeSeniors -and ($klasse -match '11' -or $klasse -match '12')) )
     {      
-      $key = (($Data.Faecher.[int]$_.FachId) + '.' + $klasse)
-      
       $val = New-Object PSObject
+      $val | Add-Member -MemberType NoteProperty -Name Fach -Value ($Data.Faecher.[int]$_.FachId)
+      $val | Add-Member -MemberType NoteProperty -Name Klasse -Value $klasse
+      $val | Add-Member -MemberType NoteProperty -Name Bezeichnung -Value ($_.Bezeichnung)
       $val | Add-Member -MemberType NoteProperty -Name Klassenliste -Value ($groupToStudents.[int]$_.KlassenGruppeId)
       $val | Add-Member -MemberType NoteProperty -Name Lehrkraft -Value $lehrkraft
+      $val | Add-Member -MemberType NoteProperty -Name Koppel -Value ($_.IsPseudoKoppel)
       
-      if($out.ContainsKey($key))
+      if( $out.ContainsKey($_.Bezeichnung) )
       {
-        $out[$key].Klassenliste += $val.Klassenliste
+        ( $out.($_.Bezeichnung) ).Klassenliste += ($groupToStudents.[int]$_.KlassenGruppeId)
       }
       else
       {
-        $out.Add($key, $val)
+        $out.Add( ($_.Bezeichnung) , $val)
       }
     } 
   }
   
+  if($WhatIf){ $DbgOut = New-Object -TypeName "System.Collections.ArrayList" }
+  
   foreach($o in $out.GetEnumerator()) 
-  { 
-    $fach,$klasse = $o.Key.Split('.')
+  {
+    $teacher = Get-NullSaveStrFromHashTable -Table $teacherToObj -FallbackString $FallbackOwner -LookupKey $o.Value.Lehrkraft
     
-    $teacher = $teacherToObj.($o.Value.Lehrkraft)
-    $team = New-Team -DisplayName ("{0} - {1}" -f $klasse,$fach) -Template EDU_Class -Owner $teacher[0].ToString()
-    
-    foreach ($s in $o.Value.Klassenliste)
+    $dn = "{0} - {1}" -f ($o.Value.Klasse),($o.Value.Fach)
+    if(!$o.Value.Koppel)
     {
-      $obj = $schuelerToObj.($s.SchuelerId)
-      Add-TeamUser -GroupId $team.GroupId -User $obj[0].ToString() -Role Member
+      $dn = $o.Value.Bezeichnung
+    }
+    
+    if($WhatIf)
+    {
+      Write-Host "[WHATIF] Would create Class: $($dn) | Subject: $($o.Value.Fach) | Pupil count: $($o.Value.Klassenliste.Count)" 
+      $o.Value | Add-Member -MemberType NoteProperty -Name DisplayName -Value $dn
+      $DbgOut.Add($o.Value)
+    }
+    else
+    {
+      Write-Host "[CREATE] $($o.Value.Bezeichnung)"
+      
+      $team = New-Team -DisplayName $dn -Template EDU_Class -Owner ($teacher)
+    
+      foreach ($s in $o.Value.Klassenliste)
+      {
+        $obj = Get-NullSaveStrFromHashTable -Table $schuelerToObj -LookupKey $s.SchuelerId
+        Write-Host "[CREATE] Add user $obj"
+        Add-TeamUser -GroupId $team.GroupId -User $obj -Role Member
+      }
+      
+      $team = $null
     }
   }
+  if($WhatIf){return $DbgOut}
+  return
 }
