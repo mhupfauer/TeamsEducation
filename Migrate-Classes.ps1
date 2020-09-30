@@ -42,7 +42,7 @@ function Generate-SchuelerIdToObjTable()
     [parameter(
         Mandatory = $true
     )]
-    $Suffix,    
+    $Format,    
     [parameter(
         Mandatory = $true
     )]
@@ -57,7 +57,7 @@ function Generate-SchuelerIdToObjTable()
     {
       foreach($schueler in $klassengruppe.Klassenliste)
       {
-        $upn =  '{0}.{1}.{2}.schueler@{3}' -f (Remove-DiacriticsAndSpaces $schueler.Vorname),(Remove-DiacriticsAndSpaces $schueler.Familienname),($schueler.GebDatum).Split(".")[2],$Suffix
+        $upn = Get-Upn -vorname ($schueler.Vorname) -nachname ($schueler.Familienname) -gebdat ($schueler.GebDatum) -format $Format
         $SchuelerIdToObjTable.($schueler.SchuelerId) += @(($aadusers.$upn))
       }
     }
@@ -76,7 +76,7 @@ function Generate-TeacherIdToObjTable()
     [parameter(
         Mandatory = $true
     )]
-    $Suffix,
+    $Format,
     [parameter(
         Mandatory = $true
     )]
@@ -87,7 +87,7 @@ function Generate-TeacherIdToObjTable()
   
   foreach($teacher in $data.Lehrer)
   {
-    $upn =  '{0}.{1}@{2}' -f (Remove-DiacriticsAndSpaces $teacher.Vorname),(Remove-DiacriticsAndSpaces $teacher.Familienname),$Suffix
+    $upn =  Get-Upn -vorname ($teacher.Vorname) -nachname ($teacher.Familienname) -format $Format
     $TeacherIdToObjTable.($teacher.TeacherId) += @(($aadusers.$upn))
   }
   return $TeacherIdToObjTable  
@@ -117,30 +117,21 @@ function Start-ClassMigration
   #>
   param
   (
-    [parameter(
-        Mandatory = $true,
-        ValueFromPipeline = $true
-    )]
-    $Data,
-    [parameter(
-        Mandatory = $true
-    )]
-    $Suffix,
-    [parameter(
-        Mandatory=$true
-    )]
-    $FallbackOwner,
-    [bool]$IncludeSeniors = $false,
+    [parameter(Mandatory = $true,ValueFromPipeline = $true)]$Data,
+    [parameter(Mandatory = $true)]$FormatPupil,
+    [parameter(Mandatory = $true)]$FormatTeacher,
+    [parameter(Mandatory=$true)]$FallbackOwner,
     $WhatIf = $false
   )
 
   $allusers = Get-AadUserHashTable
+  $allclasses = @{}; Get-AzureADGroup -All $true | % { $allclasses.Add($_.DisplayName, $_) }
   
   $groupToClass = Generate-ClassToGroupHashTable -data $Data
   $groupToStudents = Generate-ClassGroupsToStudentHashTable -data $Data
   
-  $schuelerToObj = Generate-SchuelerIdToObjTable -data $Data -aadusers $allusers -Suffix $Suffix
-  $teacherToObj = Generate-TeacherIdToObjTable -data $Data -aadusers $allusers -Suffix $Suffix
+  $schuelerToObj = Generate-SchuelerIdToObjTable -data $Data -aadusers $allusers -Format $FormatPupil
+  $teacherToObj = Generate-TeacherIdToObjTable -data $Data -aadusers $allusers -Format $FormatTeacher
   
   $out = @{}
   $Data.Unterrichtselemente | % {
@@ -152,7 +143,8 @@ function Start-ClassMigration
     }
     $lehrkraft = $_.LehrkraftId
     
-    if(! (!$IncludeSeniors -and ($klasse -match '11' -or $klasse -match '12')) )
+    #TODO PLACE ! INSIDE IF STATEMENT
+    if( ($klasse -match '11' -or $klasse -match '12') )
     {      
       $val = New-Object PSObject
       $val | Add-Member -MemberType NoteProperty -Name Fach -Value ($Data.Faecher.[int]$_.FachId)
@@ -180,7 +172,7 @@ function Start-ClassMigration
     $teacher = Get-NullSaveStrFromHashTable -Table $teacherToObj -FallbackString $FallbackOwner -LookupKey $o.Value.Lehrkraft
     
     $dn = "{0} - {1}" -f ($o.Value.Klasse),($o.Value.Fach)
-    if(!$o.Value.Koppel)
+    if( (!$o.Value.Koppel) -or ($o.Value.Klasse -match "Q") )
     {
       $dn = $o.Value.Bezeichnung
     }

@@ -93,7 +93,7 @@ function Remove-LegacyUsers
     [Parameter(Mandatory=$true)]$ExemptListPath,
     [Parameter(Mandatory=$true)]$WhatIf
   )
-  
+    
   $aadusers = Get-AzureADUser -All $true
-  
+  $
 }
