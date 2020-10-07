@@ -14,7 +14,7 @@
 RootModule = 'loader.psm1'
 
 # Version Number
-ModuleVersion = '0.9.1'
+ModuleVersion = '0.9.2'
 
 # Unique Module ID
 GUID = '6d939bc7-10d8-4fba-9ffe-d24c88e892c1'
@@ -65,7 +65,9 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = '* 0.9.1 => Added functionality to retire teams / users from the previous school year.
+        ReleaseNotes = '* 0.9.1 => Added functionality to retire teams from the previous school year.
+* 0.9.2 => Added functionality to retire users from the previous school year.
+           Stability improvements.
 * Initial release.'
 
         # Prerelease string of this module
