@@ -70,18 +70,18 @@
       foreach ($kl in $kg.Klassenliste)
       {
         $upn = Get-Upn -vorname ($kl.Vorname) -nachname ($kl.Familienname) -gebdat ($kl.GebDatum) -format $Format
-        $klasse = $k.Klassenname
-        $anrede = $kl.Anschriftstext
-        $anschrift = $kl.Strasse
-        $hsnr = $kl.HausNummer
-        $plz = $kl.PLZ
-        $ort = $kl.Ort
-        $oldflag = $false
-        
-        $pass = (Get-RandomPassword(11).ToString()) + "!"
-
         if (!$aadusers.ContainsKey($upn)) 
-        { 
+        {
+          $klasse = $k.Klassenname
+          $anrede = $kl.Anschriftstext
+          $anschrift = $kl.Strasse
+          $hsnr = $kl.HausNummer
+          $plz = $kl.PLZ
+          $ort = $kl.Ort
+          $oldflag = $false
+        
+          $pass = (Get-RandomPassword(11).ToString()) + "!"
+           
           $luser = New-Object psobject
       
           # If password list is set and key with firstlastname exisists stored password

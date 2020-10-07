@@ -88,12 +88,60 @@ function Remove-LegacyUsers
   param
   (
     [Parameter(Mandatory=$true)]$data,
-    [Parameter(Mandatory=$true)]$DeletionOutput,
-    [Parameter(Mandatory=$true)]$Suffix,
-    [Parameter(Mandatory=$true)]$ExemptListPath,
-    [Parameter(Mandatory=$true)]$WhatIf
+    [Parameter(Mandatory=$true)]$Format,
+    [bool]$Force=$false,
+    [HashTable]$NoDelte = @{},
+    $WhatIf = $false
   )
     
   $aadusers = Get-AzureADUser -All $true
-  $
+  $asvusers = @{}
+  
+  foreach($k in $data.Klassen)
+  {
+    foreach($kg in $k.KlassenGruppen)
+    {
+      foreach($kl in $kg.Klassenliste)
+      {
+        $upn = Get-Upn -vorname ($kl.Vorname) -nachname ($kl.Familienname) -gebdat ($kl.GebDatum) -format $Format
+        if(!$asvusers.ContainsKey($upn))
+        {
+          $asvusers.Add($upn,$null)
+        }
+      }
+    }
+  }
+  
+  $noasvhit = @{}
+  foreach ($aad in $aadusers)
+  {
+    if( (!$asvusers.ContainsKey($aad.UserPrincipalName)) -and (!$NoDelte.Contains($aad.UserPrincipalname)) -and ($aad.UserPrincipalName -match "schueler") )
+    {
+      $noasvhit.Add($aad.UserPrincipalName, $aad)
+    }
+  }
+  
+  Write-Host ("{0} Users to be deleted" -f ($noasvhit.Count))
+  $noasvhit.GetEnumerator() | Select-Object -ExpandProperty Value | ft
+  
+  if($Force)
+  {
+    $optn = 'Y'
+  }
+  else
+  {
+    Write-Host "Do you want to delete those users? [Y/n]"
+    if($WhatIf){Write-Host "WhatIf enabled, users will not be deleted"}
+    $optn = Read-Host
+  }
+  
+  if($optn -eq 'Y')
+  {
+    $noasvhit.GetEnumerator() | % { if(!$WhatIf){Remove-AzureADUser -ObjectId $_.Value.ObjectId}; Write-Host "DELETE: $($_.Value.UserPrincipalName)"}
+    Write-Host "Users deleted."
+  }
+  else
+  {
+    Write-Host "Users not deleted. You may exclude users in a HashTable and pass to parameter -NoDelte"
+  }
 }
