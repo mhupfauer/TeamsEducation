@@ -64,26 +64,29 @@ function Remove-LegacyUsers
       Removes legacy users from the previous year.
 
       .Description
-      Removes all users from AAD that are no longer contained in ASV
+      Removes all users from AAD that are no longer present in ASV
 
       .Parameter data
       Object returned from Get-DataFromAsvXml
  
-      .Parameter DeletionOutput
-      Path where output file of deleted users sould be stored.
+      .Parameter Force
+      Boolean value, if set will delete users without prompt
 
-      .Parameter Suffix
-      Suffix after @ in UPN firstname.lastname@SUFFIX (somedomain.tld)
+      .Parameter Format
+       UPN Format "{0}.{1}.{2}.schueler@domain.tld"
+       {0} = Firstname
+       {1} = Lastname
+       {2} = Birthday
 
-      .Parameter ExemptListPath
-      Path to .csv file with users not to delete. Structure (vorname,nachname)
+      .Parameter NoDelete
+      HashTable with users to exclude from deletion
 
       .Parameter WhatIf
-      Does not delete users in production system. Only prints users to console and creates output file.
+      Does not delete users in production system. Only prints users to console.
 
       .Example
       # Archives teams
-      Close-LegacyTeams -Prefix "[ARCHIVE 19/20]"
+      Remove-LegacyUsers -data $data -Format "{0}.{1}.{2}.schueler@schule.tld" -NoDelte @{'marina.mueller.2222.schueler@schule.tld'='';} -WhatIf $true -Force $true
   #>
   param
   (
