@@ -28,18 +28,9 @@
 #>
   param
   (
-    [parameter(
-        Mandatory = $true
-    )]
-    $data,
-    [parameter(
-        Mandatory = $true
-    )]
-    $AADUserOutput,
-    [parameter(
-        Mandatory = $true
-    )]
-    $Suffix,
+    [parameter(Mandatory = $true)] $data,
+    [parameter(Mandatory = $true)] $AADUserOutput,
+    [parameter(Mandatory = $true)] $Format,
     $WhatIf = $false,
     $ExemptListPath
   )
@@ -55,11 +46,8 @@
   $LicensesToAssign = Get-LicensesToAssign -Plans @('STANDARDWOFFPACK_FACULTY')
 
   foreach ($l in $data.Lehrer)
-  {
-    $vorname = Remove-DiacriticsAndSpaces $l.Vorname
-    $nachname = Remove-DiacriticsAndSpaces $l.Familienname
-  
-    $upn = "$vorname.$nachname@$Suffix"
+  {  
+    $upn = Get-Upn -vorname $vorname -nachname $nachname -format $Format
     
     $pass = (Get-RandomPassword(12).ToString()) + "!"    
     $PasswordProfile.Password = $pass

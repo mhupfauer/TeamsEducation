@@ -13,8 +13,11 @@
  .Parameter AADUserOutput
   Path where output file of created users sould be stored.
 
- .Parameter Suffix
-  Suffix after @ in UPN firstname.lastname@SUFFIX (somedomain.tld)
+ .Parameter Format
+  UPN Format "{0}.{1}.{2}.schueler@domain.tld"
+  {0} = Firstname
+  {1} = Lastname
+  {2} = Birthday
 
  .Parameter PasswordListPath
   Path to .csv file with exisiting passwords. Structure (vorname,nachname,pass)
@@ -40,7 +43,7 @@
     [Parameter(
         Mandatory = $true
     )]
-    $Suffix,
+    $Format,
     $PasswordListPath,
     $WhatIf = $false
   )
@@ -66,23 +69,19 @@
     {
       foreach ($kl in $kg.Klassenliste)
       {
-              
-        $vorname = Remove-DiacriticsAndSpaces $kl.Vorname
-        $nachname = Remove-DiacriticsAndSpaces $kl.Familienname
-        $gebdat = $kl.GebDatum.Split(".")[2]
-        $upn = "{0}.{1}.schueler@{2}" -f $vorname,$nachname,$Suffix
-        $klasse = $k.Klassenname
-        $anrede = $kl.Anschriftstext
-        $anschrift = $kl.Strasse
-        $hsnr = $kl.HausNummer
-        $plz = $kl.PLZ
-        $ort = $kl.Ort
-        $oldflag = $false
-        
-        $pass = (Get-RandomPassword(11).ToString()) + "!"
-
+        $upn = Get-Upn -vorname ($kl.Vorname) -nachname ($kl.Familienname) -gebdat ($kl.GebDatum) -format $Format
         if (!$aadusers.ContainsKey($upn)) 
-        { 
+        {
+          $klasse = $k.Klassenname
+          $anrede = $kl.Anschriftstext
+          $anschrift = $kl.Strasse
+          $hsnr = $kl.HausNummer
+          $plz = $kl.PLZ
+          $ort = $kl.Ort
+          $oldflag = $false
+        
+          $pass = (Get-RandomPassword(11).ToString()) + "!"
+           
           $luser = New-Object psobject
       
           # If password list is set and key with firstlastname exisists stored password

@@ -117,3 +117,20 @@ function Get-NullSaveStrFromHashTable
     }
     return $out
 }
+
+function Get-Upn
+{
+  param
+  (
+    [parameter(Mandatory=$true)] $vorname,
+    [parameter(Mandatory=$true)] $nachname,
+    $gebdat = "0.0.0",
+    [parameter(Mandatory=$true)] $format
+  )
+  
+  $vorname = Remove-DiacriticsAndSpaces -inputString $vorname
+  $nachname = Remove-DiacriticsAndSpaces -inputString $nachname
+  $gebdat = $gebdat.Split(".")[2]
+  
+  return ($format -f $vorname,$nachname,$gebdat)
+}
