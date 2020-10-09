@@ -113,7 +113,7 @@ function Get-NullSaveStrFromHashTable
     }
     else
     {
-      $out = $outObj.ToString()
+      $out = $outObj
     }
     return $out
 }

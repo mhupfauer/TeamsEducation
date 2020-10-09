@@ -10,25 +10,10 @@
   {
     foreach ($kg in $k.KlassenGruppen)
     {
-      $klassendata.Add([int]$kg.KlassenGruppenId, $k.Klassenname)
+      $klassendata.Add($kg.KlassenGruppenId, $k.Klassenname)
     }
   }
   return $klassendata
-}
-
-function Generate-ClassGroupsToStudentHashTable
-{
-  param
-  (
-    [Parameter(Mandatory=$true)]
-    $data
-  )
-  $students = @{}
-  foreach ($s in $data.Klassen.Klassengruppen)
-  {
-    $students.Add([int]$s.KlassenGruppenId, $s.Klassenliste)
-  }
-  return $students
 }
 
 function Generate-SchuelerIdToObjTable()
@@ -51,16 +36,10 @@ function Generate-SchuelerIdToObjTable()
 
   $SchuelerIdToObjTable = @{}
   
-  foreach($klasse in $data.Klassen)
+  foreach($schueler in $data.Klassen.KlassenGruppen.Klassenliste)
   {
-    foreach($klassengruppe in $klasse.KlassenGruppen)
-    {
-      foreach($schueler in $klassengruppe.Klassenliste)
-      {
-        $upn = Get-Upn -vorname ($schueler.Vorname) -nachname ($schueler.Familienname) -gebdat ($schueler.GebDatum) -format $Format
-        $SchuelerIdToObjTable.($schueler.SchuelerId) += @(($aadusers.$upn))
-      }
-    }
+    $upn = Get-Upn -vorname ($schueler.Vorname) -nachname ($schueler.Familienname) -gebdat ($schueler.GebDatum) -format $Format
+    $SchuelerIdToObjTable.($schueler.SchuelerId) += @(($aadusers.$upn))
   }
   return $SchuelerIdToObjTable  
 }
@@ -92,6 +71,28 @@ function Generate-TeacherIdToObjTable()
   }
   return $TeacherIdToObjTable  
 }
+function Generate-CoursesStudentTbl
+{
+  param
+  (
+    [parameter(
+        Mandatory = $true
+    )]
+    $data
+  )
+  
+  $CourseStudentMap = @{}
+  
+  foreach($kl in $data.Klassen.Klassengruppen.Klassenliste)
+  {
+    foreach($bf in $kl.BesuchteFaecher)
+    {
+      $CourseStudentMap.$bf += @(($kl.SchuelerId))
+    }
+  }
+  return $CourseStudentMap
+}
+
 function Start-ClassMigration
 {
   <#
@@ -121,6 +122,7 @@ function Start-ClassMigration
     [parameter(Mandatory = $true)]$FormatPupil,
     [parameter(Mandatory = $true)]$FormatTeacher,
     [parameter(Mandatory=$true)]$FallbackOwner,
+    [parameter(Mandatory=$true)]$StdPath,
     $WhatIf = $false
   )
 
@@ -128,76 +130,88 @@ function Start-ClassMigration
   $allclasses = @{}; Get-AzureADGroup -All $true | % { $allclasses.Add($_.DisplayName, $_) }
   
   $groupToClass = Generate-ClassToGroupHashTable -data $Data
-  $groupToStudents = Generate-ClassGroupsToStudentHashTable -data $Data
-  
+
   $schuelerToObj = Generate-SchuelerIdToObjTable -data $Data -aadusers $allusers -Format $FormatPupil
   $teacherToObj = Generate-TeacherIdToObjTable -data $Data -aadusers $allusers -Format $FormatTeacher
+  
+  $unterrichtsElementToSchueler = Generate-CoursesStudentTbl -data $Data
   
   $out = @{}
   $Data.Unterrichtselemente | % {
     
-    $klasse = $groupToClass.[int]$_.KlassenGruppeId
+    $klasse = $groupToClass.($_.KlassenGruppeId)
     if($null -eq $klasse)
     {
       Write-Host "[DBG] NO class found for id: $($_.KlassenGruppeId)"
     }
-    $lehrkraft = $_.LehrkraftId
     
-    #TODO PLACE ! INSIDE IF STATEMENT
-    if( ($klasse -match '11' -or $klasse -match '12') )
-    {      
+    if( $out.ContainsKey($_.Bezeichnung) )
+    {
+      ( $out.($_.Bezeichnung) ).Unterrichtselemente += @(($_.Id))
+    }
+    else
+    {
       $val = New-Object PSObject
-      $val | Add-Member -MemberType NoteProperty -Name Fach -Value ($Data.Faecher.[int]$_.FachId)
+      $val | Add-Member -MemberType NoteProperty -Name Fach -Value ($Data.Faecher.($_.FachId))
+      $val | Add-Member -MemberType NoteProperty -Name Unterrichtselemente -Value @(($_.Id))
       $val | Add-Member -MemberType NoteProperty -Name Klasse -Value $klasse
       $val | Add-Member -MemberType NoteProperty -Name Bezeichnung -Value ($_.Bezeichnung)
-      $val | Add-Member -MemberType NoteProperty -Name Klassenliste -Value ($groupToStudents.[int]$_.KlassenGruppeId)
-      $val | Add-Member -MemberType NoteProperty -Name Lehrkraft -Value $lehrkraft
+      $val | Add-Member -MemberType NoteProperty -Name Lehrkraft -Value ($_.LehrkraftId)
       $val | Add-Member -MemberType NoteProperty -Name Koppel -Value ($_.IsPseudoKoppel)
       
-      if( $out.ContainsKey($_.Bezeichnung) )
-      {
-        ( $out.($_.Bezeichnung) ).Klassenliste += ($groupToStudents.[int]$_.KlassenGruppeId)
-      }
-      else
-      {
-        $out.Add( ($_.Bezeichnung) , $val)
-      }
-    } 
+      $out.Add( ($_.Bezeichnung) , $val)
+    }
   }
   
   if($WhatIf){ $DbgOut = New-Object -TypeName "System.Collections.ArrayList" }
   
   foreach($o in $out.GetEnumerator()) 
   {
-    $teacher = Get-NullSaveStrFromHashTable -Table $teacherToObj -FallbackString $FallbackOwner -LookupKey $o.Value.Lehrkraft
-    
-    $dn = "{0} - {1}" -f ($o.Value.Klasse),($o.Value.Fach)
-    if( (!$o.Value.Koppel) -or ($o.Value.Klasse -match "Q") )
+    if( $o.Value.Klasse -match "^(11|12)Q$" )
     {
-      $dn = $o.Value.Bezeichnung
+      $dn = "[{0}] {1} - {2}" -f $o.Value.Klasse,$o.Value.Bezeichnung,$o.Value.Fach
     }
-    
-    if($WhatIf)
+    elseif( !$o.Value.Koppel )
     {
-      Write-Host "[WHATIF] Would create Class: $($dn) | Subject: $($o.Value.Fach) | Pupil count: $($o.Value.Klassenliste.Count)" 
-      $o.Value | Add-Member -MemberType NoteProperty -Name DisplayName -Value $dn
-      $DbgOut.Add($o.Value)
+      $dn = "{0} - {1}" -f $o.Value.Bezeichnung,$o.Value.Fach
     }
     else
     {
-      Write-Host "[CREATE] $($o.Value.Bezeichnung)"
-      
-      $team = New-Team -DisplayName $dn -Template EDU_Class -Owner ($teacher)
-    
-      foreach ($s in $o.Value.Klassenliste)
-      {
-        $obj = Get-NullSaveStrFromHashTable -Table $schuelerToObj -LookupKey $s.SchuelerId
-        Write-Host "[CREATE] Add user $obj"
-        Add-TeamUser -GroupId $team.GroupId -User $obj -Role Member
-      }
-      
-      $team = $null
+      $dn = "{0} - {1}" -f ($o.Value.Klasse),($o.Value.Fach)
     }
+    
+    if($allclasses.ContainsKey($dn))
+    {
+      continue
+    }  
+    
+    $teacher = Get-NullSaveStrFromHashTable -Table $teacherToObj -FallbackString $FallbackOwner -LookupKey $o.Value.Lehrkraft
+      
+    if(!$WhatIf)
+    {
+      Write-Host "[CREATE] team $dn"
+      $team = New-Team -DisplayName $dn -Template EDU_Class -Owner ($teacher)
+    }
+    else { Write-Host "[WhatIf] Create team $dn"}
+    
+    foreach ($ue in $o.Value.Unterrichtselemente)
+    {
+      foreach($s in $unterrichtsElementToSchueler.$ue)
+      {
+        if(!$WhatIf)
+        {
+          Write-Host "[CREATE] Add user to team: $dn"
+          [string]$obj = $schuelerToObj.$s
+          Add-TeamUser -User $obj -GroupId $team.GroupId -Role Member
+        }
+        else
+        {
+          #Write-Host "[WhatIf] Would add user to $dn"
+        }
+      }
+    }
+        
+    $team = $null
   }
   if($WhatIf){return $DbgOut}
   return

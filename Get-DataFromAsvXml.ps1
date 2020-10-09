@@ -96,6 +96,9 @@ function transformAsvData
         $hsnr = $ss.schueleranschriften.schueleranschrift[0].anschrift.nummer.'#cdata-section'
         $schuelerdata | Add-Member -MemberType NoteProperty -Name HausNummer -Value $hsnr
         
+        $besfaecher = @(); $ss.besuchte_faecher.besuchtes_fach | % {$besfaecher += $_.unterrichtselemente.unterrichtselement_id}
+        $schuelerdata | Add-Member -MemberType NoteProperty -Name BesuchteFaecher -Value ($besfaecher)
+        
         $schueler += $schuelerdata
       }
       
@@ -110,7 +113,7 @@ function transformAsvData
   
   foreach ($f in $base.faecher.fach)
   {
-    $faecher.Add([int]$f.xml_id, $f.anzeigeform."#cdata-section")
+    $faecher.Add($f.xml_id, $f.anzeigeform."#cdata-section")
   }
   
   $lehrerMap = @{}
