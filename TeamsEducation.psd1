@@ -14,7 +14,7 @@
 RootModule = 'loader.psm1'
 
 # Version Number
-ModuleVersion = '0.9.2'
+ModuleVersion = '0.9.4'
 
 # Unique Module ID
 GUID = '6d939bc7-10d8-4fba-9ffe-d24c88e892c1'
@@ -45,7 +45,7 @@ RequiredModules = @('AzureADPreview','MicrosoftTeams','MSOnline')
 
 
 # List of exportable functions
-FunctionsToExport = @('Start-MigrationEnv', 'Start-ClassMigration', 'Start-StudentMigration', 'Start-TeacherMigration','Get-DataFromAsvXml')
+FunctionsToExport = @('Start-MigrationEnv', 'Start-ClassMigration', 'Start-StudentMigration', 'Start-TeacherMigration','Get-DataFromAsvXml', 'Close-LegacyTeams', 'Remove-LegacyUsers')
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
 PrivateData = @{
@@ -68,10 +68,13 @@ PrivateData = @{
         ReleaseNotes = '* 0.9.1 => Added functionality to retire teams from the previous school year.
 * 0.9.2 => Added functionality to retire users from the previous school year.
            Stability improvements.
-* Initial release.'
+* 0.9.3 => Added ability to create senior classes and map users propperly
+           Overall speed improvements by reducing complexity of user resolving
+* 0.9.4 => Stability improvements. 
+           0.9.4 has been fully tested on production ASV data for a bavarian gymnasium.'
 
         # Prerelease string of this module
-        Prerelease = 'This a technical preview. Not fully tested yet!'
+        Prerelease = '-RC'
 
         # Flag to indicate whether the module requires explicit user acceptance for install/update
         RequireLicenseAcceptance = $true

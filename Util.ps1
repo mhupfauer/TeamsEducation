@@ -102,10 +102,15 @@ function Get-NullSaveStrFromHashTable
     [parameter(Mandatory=$true)]
     $Table,
     [parameter(Mandatory=$true)]
+    [AllowNull()] 
     $LookupKey,
     $FallbackString
   )
-  
+    if($null -eq $LookupKey)
+    {
+      return $FallbackString
+    }
+    
     $outObj = $Table.$LookupKey
     if($outObj -eq $null)
     {
@@ -113,7 +118,7 @@ function Get-NullSaveStrFromHashTable
     }
     else
     {
-      $out = $outObj.ToString()
+      $out = $outObj
     }
     return $out
 }

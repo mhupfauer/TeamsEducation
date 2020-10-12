@@ -34,15 +34,16 @@
   {
     Write-Host -ForegroundColor Red '[ATTENTION] BE EXTRA SURE OF WHAT YOU ARE DOING'
     Write-Host -ForegroundColor Red 'The following groups match your regex pattern:'
-    Get-AzureADGroup -All $true | Where-Object {$_.DisplayName -match $pattern}
-    $rhost = Read-Host -Prompt 'Are you sure you want to archive these groups? | [y]es, [n]o'
-    if($rhost -ne 'y')
-    {
-      return
-    }
   }
   
   $groups = Get-AzureADGroup -All $true | Where-Object {$_.DisplayName -match $pattern}
+  ($groups | Sort-Object -Property DisplayName | ft)
+  Write-Host 'Are you sure you want to archive these groups? | [Y]es, [n]o'
+  $rhost = Read-Host
+  if($rhost -ne 'Y')
+  {
+    return
+  }
   
   foreach ($g in $groups)
   {
@@ -73,10 +74,10 @@ function Remove-LegacyUsers
       Boolean value, if set will delete users without prompt
 
       .Parameter Format
-       UPN Format "{0}.{1}.{2}.schueler@domain.tld"
-       {0} = Firstname
-       {1} = Lastname
-       {2} = Birthday
+      UPN Format "{0}.{1}.{2}.schueler@domain.tld"
+      {0} = Firstname
+      {1} = Lastname
+      {2} = Birthday
 
       .Parameter NoDelete
       HashTable with users to exclude from deletion
