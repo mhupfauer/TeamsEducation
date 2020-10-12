@@ -87,7 +87,10 @@ function Generate-CoursesStudentTbl
   {
     foreach($bf in $kl.BesuchteFaecher)
     {
-      $CourseStudentMap.$bf += @(($kl.SchuelerId))
+      if(-not $null -eq $bf)
+      {
+        $CourseStudentMap.$bf += @(($kl.SchuelerId))
+      }
     }
   }
   return $CourseStudentMap
@@ -122,12 +125,12 @@ function Start-ClassMigration
     [parameter(Mandatory = $true)]$FormatPupil,
     [parameter(Mandatory = $true)]$FormatTeacher,
     [parameter(Mandatory=$true)]$FallbackOwner,
-    [parameter(Mandatory=$true)]$StdPath,
+    $Skip12 = $false,
     $WhatIf = $false
   )
 
   $allusers = Get-AadUserHashTable
-  $allclasses = @{}; Get-AzureADGroup -All $true | % { $allclasses.Add($_.DisplayName, $_) }
+  $allclasses = @{}; Get-AzureADGroup -All $true | % { if(-not $allclasses.ContainsKey($_.DisplayName)){ $allclasses.Add($_.DisplayName, $_) } }
   
   $groupToClass = Generate-ClassToGroupHashTable -data $Data
 
@@ -167,7 +170,8 @@ function Start-ClassMigration
   
   foreach($o in $out.GetEnumerator()) 
   {
-    if( $o.Value.Klasse -match "^(11|12)Q$" )
+    if($Skip12 -and $o.Value.Klasse -match "^12$"){continue}
+    if( $o.Value.Klasse -match "^(11|12).*$" )
     {
       $dn = "[{0}] {1} - {2}" -f $o.Value.Klasse,$o.Value.Bezeichnung,$o.Value.Fach
     }

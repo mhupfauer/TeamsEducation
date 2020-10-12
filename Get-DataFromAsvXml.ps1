@@ -96,7 +96,7 @@ function transformAsvData
         $hsnr = $ss.schueleranschriften.schueleranschrift[0].anschrift.nummer.'#cdata-section'
         $schuelerdata | Add-Member -MemberType NoteProperty -Name HausNummer -Value $hsnr
         
-        $besfaecher = @(); $ss.besuchte_faecher.besuchtes_fach | % {$besfaecher += $_.unterrichtselemente.unterrichtselement_id}
+        $besfaecher = @(); $ss.besuchte_faecher | % { $_.besuchtes_fach.unterrichtselemente | % {$besfaecher += $_.unterrichtselement_id}}
         $schuelerdata | Add-Member -MemberType NoteProperty -Name BesuchteFaecher -Value ($besfaecher)
         
         $schueler += $schuelerdata
