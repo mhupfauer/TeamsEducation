@@ -26,7 +26,7 @@ License:         MIT License (see license.txt)
 Mail (private):  markushupfauer@ieee.org
 Mail (business): markus.hupfauer@xitaso.com
 Website:         https://xitaso.com
-Version:         0.9.3
+Version:         0.9.4
 
 
 "@

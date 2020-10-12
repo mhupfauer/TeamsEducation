@@ -109,12 +109,28 @@ function Start-ClassMigration
       .Parameter data
       Object returned from Get-DataFromAsvXml
  
-      .Parameter Suffix
-      Suffix after @ in UPN firstname.lastname@SUFFIX (somedomain.tld)
+      .Parameter FormatPupil
+      UPN Format "{0}.{1}.{2}.schueler@domain.tld"
+      {0} = Firstname
+      {1} = Lastname
+      {2} = Birthday
 
-      .Parameter IncludeSeniors
-      Wether or not to import classes from 11th or 12th form
+      .Parameter FormatTeacher
+      UPN Format "{0}.{1}@domain.tld"
+      {0} = Firstname
+      {1} = Lastname
 
+      .Parameter FallbackOwner
+      User to be set if ASV does not proivde a teacher for a given course.
+      If you are the administrator of the school this probably should be you.
+      If you are a technician and no teacher, this should probably be the headmaster of the school.
+
+       .Parameter Skip12
+      Does not created classes for the 12th form.
+
+      .Parameter WhatIf
+      Only prints to console, no changes to AzureAD will be made
+ 
       .Example
       # Creates class teams
       Start-ClassMigration -data $data -Suffix myschool.tld -IncludeSeniors $false
