@@ -14,7 +14,7 @@
 RootModule = 'loader.psm1'
 
 # Version Number
-ModuleVersion = '0.9.4'
+ModuleVersion = '0.9.5'
 
 # Unique Module ID
 GUID = '6d939bc7-10d8-4fba-9ffe-d24c88e892c1'
@@ -41,11 +41,11 @@ Genauere Informationen können unter https://github.com/mhupfauer/TeamsEducation
 '
 
 # Required Modules (will load before this module loads)
-RequiredModules = @('AzureADPreview','MicrosoftTeams','MSOnline')
+RequiredModules = @('AzureAD','MicrosoftTeams', 'Microsoft.Graph')
 
 
 # List of exportable functions
-FunctionsToExport = @('Start-MigrationEnv', 'Start-ClassMigration', 'Start-StudentMigration', 'Start-TeacherMigration','Get-DataFromAsvXml', 'Close-LegacyTeams', 'Remove-LegacyUsers')
+FunctionsToExport = @('Start-MigrationEnv', 'Start-ClassMigration', 'Start-StudentMigration', 'Start-TeacherMigration','Get-DataFromAsvXml', 'Close-LegacyTeams', 'Remove-LegacyUsers', 'Update-UserLicenses', 'New-BroadcastMessage')
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
 PrivateData = @{
@@ -71,7 +71,9 @@ PrivateData = @{
 * 0.9.3 => Added ability to create senior classes and map users propperly
            Overall speed improvements by reducing complexity of user resolving
 * 0.9.4 => Stability improvements. 
-           0.9.4 has been fully tested on production ASV data for a bavarian gymnasium.'
+           0.9.4 has been fully tested on production ASV data for a bavarian gymnasium.
+* 0.9.5 => Significantly imporved speed of class creation by batching user additions via Graph
+           0.9.5 has been fully tested on production ASV data for multiple bavarian "Gymnasium".'
 
         # Prerelease string of this module
         Prerelease = '-RC'

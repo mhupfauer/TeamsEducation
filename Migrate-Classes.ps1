@@ -125,9 +125,9 @@ function Start-ClassMigration
       {1} = Lastname
 
       .Parameter FallbackOwner
-      User to be set if ASV does not proivde a teacher for a given course.
-      If you are the administrator of the school this probably should be you.
-      If you are a technician and no teacher, this should probably be the headmaster of the school.
+      User to be set if ASV does not proivde a teacher for a given course. 
+      This should be a ObjectId, to find out query:
+      Get-AzureADUser -ObjectId >UPN< | select objectid
 
       .Parameter Skip12
       Does not created classes for the 12th form.
@@ -135,9 +135,9 @@ function Start-ClassMigration
       .Parameter WhatIf
       Only prints to console, no changes to AzureAD will be made
  
-      .Example
-      # Creates class teams
-      Start-ClassMigration -data $data -Suffix myschool.tld -IncludeSeniors $false
+      .Parameter Debug
+      Can only be enabled when whatif is also enabled. Whill skip checks wether or not a class is allready present in O365.
+      This can be usefull for verifiying wether or not the correct number of students has been added to all groups.
   #>
   param
   (

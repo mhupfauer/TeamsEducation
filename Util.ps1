@@ -141,7 +141,7 @@ function Get-Upn
   return ($format -f $vorname,$nachname,$gebdat,$ext)
 }
 
-function Migrate-UserLicenses
+function Update-UserLicenses
 {
   param
   (
