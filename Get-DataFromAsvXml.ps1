@@ -73,7 +73,7 @@ function transformAsvData
         
         $schuelerdata | Add-Member -MemberType NoteProperty -Name SchuelerId -Value $ss.xml_id
         
-        $vorname = ($ss.rufname."#cdata-section")
+        $vorname = ($ss.rufname."#cdata-section").Replace(" ","-")
         $schuelerdata | Add-Member -MemberType NoteProperty -Name Vorname -Value $vorname
         
         $familienname = $ss.familienname."#cdata-section".Replace(" ","-")

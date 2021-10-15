@@ -1,31 +1,31 @@
 ﻿function Start-TeacherMigration
 {
-<#
- .Synopsis
-  Creates teachers in Microsoft Teams.
+  <#
+      .Synopsis
+      Creates teachers in Microsoft Teams.
 
- .Description
-  Reads ASV Data from Get-DataFromAsvXml and creates teacher user accounts based on ASV Data.
+      .Description
+      Reads ASV Data from Get-DataFromAsvXml and creates teacher user accounts based on ASV Data.
 
- .Parameter data
-  Object returned from Get-DataFromAsvXml
+      .Parameter data
+      Object returned from Get-DataFromAsvXml
  
- .Parameter AADUserOutput
-  Path where output file of created users sould be stored.
+      .Parameter AADUserOutput
+      Path where output file of created users sould be stored.
 
- .Parameter Suffix
-  Suffix after @ in UPN firstname.lastname@SUFFIX (somedomain.tld)
+      .Parameter Suffix
+      Suffix after @ in UPN firstname.lastname@SUFFIX (somedomain.tld)
 
- .Parameter ExemptListPath
-  Path to .csv file with teachers not to create. Structure (vorname,nachname)
+      .Parameter ExemptListPath
+      Path to .csv file with teachers not to create. Structure (vorname,nachname)
 
- .Parameter WhatIf
-  Does not create users in production system. Only prints users to console and creates output file.
+      .Parameter WhatIf
+      Does not create users in production system. Only prints users to console and creates output file.
 
- .Example
-  # Creates students in asv.
-  Start-TeacherMigration -data $data -AADUserOutput C:\users\docuemtns\created-teachers.csv -Suffix myschool.tld
-#>
+      .Example
+      # Creates students in asv.
+      Start-TeacherMigration -data $data -AADUserOutput C:\users\docuemtns\created-teachers.csv -Suffix myschool.tld
+  #>
   param
   (
     [parameter(Mandatory = $true)] $data,
@@ -35,7 +35,12 @@
     $ExemptListPath
   )
   
-  $ExemptList = Get-ExemptList -extemptListPath $ExemptListPath
+  if(!($ExemptListPath -eq $null))
+  {
+    $ExemptList = Get-ExemptList -extemptListPath $ExemptListPath
+  } else {
+    $ExemptList = @()
+  }
   
   $aadusers = Get-AadUserHashTable
 
@@ -43,20 +48,20 @@
   
   $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
   $PasswordProfile.ForceChangePasswordNextLogin = $true
-  $LicensesToAssign = Get-LicensesToAssign -Plans @('STANDARDWOFFPACK_FACULTY')
+  $LicensesToAssign = Get-LicensesToAssign -Plans @('M365EDU_A3_FACULTY')
 
   foreach ($l in $data.Lehrer)
-  {  
-    $upn = Get-Upn -vorname $vorname -nachname $nachname -format $Format
+  {
+    $upn = Get-Upn -vorname $l.Vorname -nachname $l.Familienname -format $Format
     
     $pass = (Get-RandomPassword(12).ToString()) + "!"    
     $PasswordProfile.Password = $pass
     
-    if ( ! ($ExemptList.ContainsKey($upn) -or $aadusers.ContainsKey($upn)) ) 
+    if (! ($ExemptList.Contains($upn) -or $aadusers.ContainsKey($upn)) ) 
     {
-      if(! $WhatIf)
+      if(!$WhatIf)
       {
-        $aad = New-AzureADUser -DisplayName ("$vorname $nachname") -MailNickName ("$vorname.$nachname") -UserPrincipalName $upn -PasswordProfile $PasswordProfile -AccountEnabled $true -UsageLocation DE
+        $aad = New-AzureADUser -DisplayName ("$($l.Vorname) $($l.Familienname)") -GivenName ($l.Vorname) -Surname ($l.Familienname) -MailNickName ($upn.Split("@")[0]) -UserPrincipalName $upn -PasswordProfile $PasswordProfile -AccountEnabled $true -UsageLocation DE
         Set-AzureADUserLicense -ObjectId $aad.ObjectId -AssignedLicenses $LicensesToAssign
       }
       else
@@ -66,13 +71,13 @@
       
       $out = New-Object PSObject
       $out | Add-Member -MemberType NoteProperty -Name UPN -Value $upn
-      $out | Add-Member -MemberType NoteProperty -Name Nachname -Value $nachname
-      $out | Add-Member -MemberType NoteProperty -Name Vorname -Value $vorname
+      $out | Add-Member -MemberType NoteProperty -Name Nachname -Value $l.Familienname
+      $out | Add-Member -MemberType NoteProperty -Name Vorname -Value $l.Vorname
       $out | Add-Member -MemberType NoteProperty -Name Pass -Value $pass
       $outs += $out
     }
   }
   
-  $outs | Export-Csv -Path $AADUserOutput
+  $outs | Export-Csv -Path $AADUserOutput -Encoding UTF8
   return 
 }

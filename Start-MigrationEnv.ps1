@@ -11,4 +11,6 @@
   Connect-AzureAD -Credential $cred
   Connect-MicrosoftTeams -Credential $cred
   Connect-MsolService -Credential $cred  
+  Select-MgProfile beta
+  Connect-MgGraph "Directory.ReadWrite.All","Chat.ReadWrite"
 } 

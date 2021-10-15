@@ -54,7 +54,7 @@
       Remove-AzureADGroupMember -ObjectId $g.ObjectId -MemberId $m.ObjectId
     }
     
-    Set-AzureADGroup -ObjectId $g.ObjectId 
+    Set-AzureADGroup -ObjectId $g.ObjectId  -DisplayName ($Prefix + " " + $g.DisplayName)
   }
 }
 

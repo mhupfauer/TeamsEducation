@@ -36,10 +36,13 @@ function Generate-SchuelerIdToObjTable()
 
   $SchuelerIdToObjTable = @{}
   
-  foreach($schueler in $data.Klassen.KlassenGruppen.Klassenliste)
+  foreach($klasse in $data.Klassen)
   {
-    $upn = Get-Upn -vorname ($schueler.Vorname) -nachname ($schueler.Familienname) -gebdat ($schueler.GebDatum) -format $Format
-    $SchuelerIdToObjTable.($schueler.SchuelerId) += @(($aadusers.$upn))
+    foreach($schueler in $klasse.KlassenGruppen.Klassenliste)
+    {
+      $upn = Get-Upn -vorname ($schueler.Vorname) -nachname ($schueler.Familienname) -gebdat ($schueler.GebDatum) -klasse ($klasse.Klassenname) -format $Format
+      $SchuelerIdToObjTable.($schueler.SchuelerId) += @(($aadusers.$upn))
+    }
   }
   return $SchuelerIdToObjTable  
 }
@@ -114,6 +117,7 @@ function Start-ClassMigration
       {0} = Firstname
       {1} = Lastname
       {2} = Birthday
+      {3} = .ext (if user is external add .ext, if not this is empty)
 
       .Parameter FormatTeacher
       UPN Format "{0}.{1}@domain.tld"
@@ -125,7 +129,7 @@ function Start-ClassMigration
       If you are the administrator of the school this probably should be you.
       If you are a technician and no teacher, this should probably be the headmaster of the school.
 
-       .Parameter Skip12
+      .Parameter Skip12
       Does not created classes for the 12th form.
 
       .Parameter WhatIf
@@ -142,11 +146,15 @@ function Start-ClassMigration
     [parameter(Mandatory = $true)]$FormatTeacher,
     [parameter(Mandatory=$true)]$FallbackOwner,
     $Skip12 = $false,
+    $SingleStepMode = $false,
+    $DebugMode = $false,
     $WhatIf = $false
   )
+  
+  if(!$WhatIf -and $DebugMode){throw "Debug and WhatIf have to be enabled simultaniously"}
 
   $allusers = Get-AadUserHashTable
-  $allclasses = @{}; Get-AzureADGroup -All $true | % { if(-not $allclasses.ContainsKey($_.DisplayName)){ $allclasses.Add($_.DisplayName, $_) } }
+  $allclasses = @{}; Get-MgGroup -All | % { if(-not $allclasses.ContainsKey($_.DisplayName)){ $allclasses.Add($_.DisplayName, $_) } }
   
   $groupToClass = Generate-ClassToGroupHashTable -data $Data
 
@@ -182,8 +190,8 @@ function Start-ClassMigration
     }
   }
   
-  if($WhatIf){ $DbgOut = New-Object -TypeName "System.Collections.ArrayList" }
-  
+  $created_teams = @{}
+  if($WhatIf){ $DbgOut = @{} }
   foreach($o in $out.GetEnumerator()) 
   {
     if($Skip12 -and $o.Value.Klasse -match "^12$"){continue}
@@ -200,39 +208,88 @@ function Start-ClassMigration
       $dn = "{0} - {1}" -f ($o.Value.Klasse),($o.Value.Fach)
     }
     
-    if($allclasses.ContainsKey($dn))
+    if($allclasses.ContainsKey($dn) -and !$DebugMode)
     {
       continue
     }  
     
-    $teacher = Get-NullSaveStrFromHashTable -Table $teacherToObj -FallbackString $FallbackOwner -LookupKey $o.Value.Lehrkraft
-      
-    if(!$WhatIf)
+    if(($teacherToObj.($o.Value.Lehrkraft) -eq $null) -or ($teacher -eq $null))
     {
-      Write-Host "[CREATE] team $dn"
-      $team = New-Team -DisplayName $dn -Template EDU_Class -Owner ($teacher)
+      $teacher = $FallbackOwner
+    } else {
+      $teacher = ($teacherToObj.($o.Value.Lehrkraft))[0]
     }
-    else { Write-Host "[WhatIf] Create team $dn"}
     
+    if(! $created_teams.ContainsKey($dn))
+    {
+      if(!$WhatIf)
+      {
+        Write-Host "[CREATE] Team $dn"
+        $team = New-Team -DisplayName $dn -Description $dn -Template EDU_Class -Owner $teacher
+        $created_teams.Add($dn,$team)
+      }
+      else { 
+        #Write-Host "[WhatIf] Create team $dn"
+        $DbgOut.Add($dn,$null)
+        $created_teams.Add($dn,'WhatIf')
+      }
+    } else {
+      $team = New-Object psobject
+      $team | Add-Member -MemberType NoteProperty -Name GroupId -Value ($created_teams.$dn.GroupId)
+    }
+    
+    $course_students = @()
     foreach ($ue in $o.Value.Unterrichtselemente)
     {
       foreach($s in $unterrichtsElementToSchueler.$ue)
       {
-        if(!$WhatIf)
-        {
-          Write-Host "[CREATE] Add user to team: $dn"
-          [string]$obj = $schuelerToObj.$s
-          Add-TeamUser -User $obj -GroupId $team.GroupId -Role Member
-        }
-        else
-        {
-          #Write-Host "[WhatIf] Would add user to $dn"
-        }
+        $course_students += ($schuelerToObj.$s)
       }
     }
-        
+    
+    $iterations = [Math]::Ceiling($course_students.Count / 20)
+  
+    for($i = 1; $i -le $iterations; $i++)
+    {
+    
+      $pupil_to_add = @'
+{
+  "members@odata.bind": [
+'@
+
+      for($c = $i*20-20; $c -lt $i*20; $c++)
+      {
+        # If the size of the array is to be exceeded skip execution of this loop
+        if($c -ge $course_students.Count){break}
+        $pupil_to_add += @"
+
+    "https://graph.microsoft.com/v1.0/directoryObjects/{$($course_students[$c])}",
+"@
+      }
+      $pupil_to_add = $pupil_to_add -replace ".{1}$"
+      $pupil_to_add += @'
+
+  ]
+}
+'@
+      if(!$WhatIf)
+      {
+          Write-Host "[CREATE] Added $($c) students to course $($dn) in $($i) out of $($iterations) batches."
+          Update-MgGroup -GroupId $team.GroupId -BodyParameter $pupil_to_add 2> $null
+      } else {
+          #Write-Host "[WhatIf] Added a total of $($c) students to course $($dn) in $($i) out of $($iterations) batches."
+          $DbgOut.$dn = $c
+      }
+    }
     $team = $null
+    if($SingleStepMode)
+    {
+      while( (Read-Host -Prompt "Create next class? [y]es or [n]o") -eq "n" )
+      {
+        Write-Host 'To exit press CTRL+C'
+      }
+    }
+    
   }
   if($WhatIf){return $DbgOut}
-  return
 }

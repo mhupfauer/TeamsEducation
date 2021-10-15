@@ -24,6 +24,9 @@ function Remove-DiacriticsAndSpaces
     $inputString = $inputString.Replace("ö","oe")
     $inputString = $inputString.Replace("ü","ue")
     $inputString = $inputString.Replace("ß","ss")
+    $inputString = $inputString.Replace("Ä","Ae")
+    $inputString = $inputString.Replace("Ö","Oe")
+    $inputString = $inputString.Replace("Ü","Ue")
     
     $objD = $inputString.Normalize([Text.NormalizationForm]::FormD)
     $sb = New-Object Text.StringBuilder
@@ -46,7 +49,7 @@ function Get-RandomPassword($len)
 function Get-AadUserHashTable()
 {
   $aadusers = @{}
-  Get-AzureADUser -All $true | % { $aadusers.Add($_.UserPrincipalName, $_.ObjectId) }
+  Get-MgUser -All | % { $aadusers.Add($_.UserPrincipalName, $_.Id) }
   return $aadusers
 }
 
@@ -76,23 +79,15 @@ function Get-ExemptList
 {
   param
   (
-    [parameter(
-        Mandatory = $true
-    )]
     $extemptListPath
   )
   
-  
-  $listout = @{}
-  $rawlist = Import-Csv -Path $extemptListPath
-
-  foreach($r in $rawlist)
+  if ($extemptListPath -eq $null)
   {
-    $vorname = Remove-DiacriticsAndSpaces $r.Vorname
-    $nachname = Remove-DiacriticsAndSpaces $r.Nachname
-    $listout.Add("$vorname.$nachname@$Suffix", "NO LICENSE")
+    return @{}
   }
-  return $listout
+  
+  return (Import-Csv -Path $extemptListPath -Delimiter ";").UPN
 }
 
 function Get-NullSaveStrFromHashTable
@@ -130,12 +125,85 @@ function Get-Upn
     [parameter(Mandatory=$true)] $vorname,
     [parameter(Mandatory=$true)] $nachname,
     $gebdat = "0.0.0",
+    $klasse,
     [parameter(Mandatory=$true)] $format
   )
   
   $vorname = Remove-DiacriticsAndSpaces -inputString $vorname
   $nachname = Remove-DiacriticsAndSpaces -inputString $nachname
   $gebdat = $gebdat.Split(".")[2]
+  $ext = ""
+  if($klasse -like '*ext')
+  {
+    $ext = ".ext"
+  }
   
-  return ($format -f $vorname,$nachname,$gebdat)
+  return ($format -f $vorname,$nachname,$gebdat,$ext)
+}
+
+function Migrate-UserLicenses
+{
+  param
+  (
+    $users,
+    $sku_to_remove,
+    $sku_to_add
+  )
+  
+  $subscriptionFrom=$sku_to_remove
+  $subscriptionTo=$sku_to_add
+  
+  foreach($u in $users.GetEnumerator())
+  {
+    # Unassign
+    $license = New-Object -TypeName Microsoft.Open.AzureAD.Model.AssignedLicense
+    $licenses = New-Object -TypeName Microsoft.Open.AzureAD.Model.AssignedLicenses
+    $licenses.RemoveLicenses =  (Get-AzureADSubscribedSku | Where-Object -Property SkuPartNumber -Value $subscriptionFrom -EQ).SkuID
+    Set-AzureADUserLicense -ObjectId $u -AssignedLicenses $licenses
+    # Assign
+    $license.SkuId = (Get-AzureADSubscribedSku | Where-Object -Property SkuPartNumber -Value $subscriptionTo -EQ).SkuID
+    $licenses = New-Object -TypeName Microsoft.Open.AzureAD.Model.AssignedLicenses
+    $licenses.AddLicenses = $License
+    Set-AzureADUserLicense -ObjectId $u -AssignedLicenses $licenses
+  }
+}
+
+
+function New-BroadcastMessage {
+
+  param(
+    $user_pattern,
+    $message
+  )
+
+  $teachers = Get-MgUser -All:$true | Where-Object {$_.userprincipalname -like $user_pattern}
+  
+  foreach($t in $teachers)
+  {
+    $odata = @"
+{
+  "chatType": "oneOnOne",
+  "members": [
+    {
+      "@odata.type": "#microsoft.graph.aadUserConversationMember",
+      "roles": ["owner"],
+      "user@odata.bind": "https://graph.microsoft.com/beta/users('69f22a03-0a86-4ab3-8745-7a8d6268ac50')"
+    },
+    {
+      "@odata.type": "#microsoft.graph.aadUserConversationMember",
+      "roles": ["owner"],
+      "user@odata.bind": "https://graph.microsoft.com/beta/users('$($t.Id)')"
+    }
+  ]
+}
+"@
+  
+    $chat = New-MgChat -BodyParameter $odata
+    New-MgChatMessage -ChatId $chat.Id -Body @"
+{
+  "content": "$($message)"
+}
+"@
+
+  }
 }

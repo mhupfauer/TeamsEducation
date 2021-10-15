@@ -1,34 +1,34 @@
 ﻿function Start-StudentMigration
 {
-<#
- .Synopsis
-  Creates students in Microsoft Teams.
+  <#
+      .Synopsis
+      Creates students in Microsoft Teams.
 
- .Description
-  Reads ASV Data from Get-DataFromAsvXml and creates student user accounts based on ASV Data.
+      .Description
+      Reads ASV Data from Get-DataFromAsvXml and creates student user accounts based on ASV Data.
 
- .Parameter data
-  Object returned from Get-DataFromAsvXml
+      .Parameter data
+      Object returned from Get-DataFromAsvXml
  
- .Parameter AADUserOutput
-  Path where output file of created users sould be stored.
+      .Parameter AADUserOutput
+      Path where output file of created users sould be stored.
 
- .Parameter Format
-  UPN Format "{0}.{1}.{2}.schueler@domain.tld"
-  {0} = Firstname
-  {1} = Lastname
-  {2} = Birthday
+      .Parameter Format
+      UPN Format "{0}.{1}.{2}.schueler@domain.tld"
+      {0} = Firstname
+      {1} = Lastname
+      {2} = Birthday
 
- .Parameter PasswordListPath
-  Path to .csv file with exisiting passwords. Structure (vorname,nachname,pass)
+      .Parameter PasswordListPath
+      Path to .csv file with exisiting passwords. Structure (vorname,nachname,pass)
 
- .Parameter WhatIf
-  Does not create users in production system. Only prints users to console and creates output file.
+      .Parameter WhatIf
+      Does not create users in production system. Only prints users to console and creates output file.
 
- .Example
-  # Creates students in asv.
-  Start-StudentMigration -data $data -AADUserOutput C:\users\docuemtns\created-students.csv -Suffix myschool.tld
-#>
+      .Example
+      # Creates students in asv.
+      Start-StudentMigration -data $data -AADUserOutput C:\users\docuemtns\created-students.csv -Format "{0}.{1}@myschool.tld"
+  #>
   param
   (
     [parameter(
@@ -44,6 +44,7 @@
         Mandatory = $true
     )]
     $Format,
+    $PassForAllUsers,
     $PasswordListPath,
     $WhatIf = $false
   )
@@ -51,7 +52,7 @@
   $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
   $PasswordProfile.ForceChangePasswordNextLogin = $true
   
-  $LicensesToAssign = Get-LicensesToAssign -Plans @('STANDARDWOFFPACK_STUDENT')
+  $LicensesToAssign = Get-LicensesToAssign -Plans @('M365EDU_A3_STUUSEBNFT')
   
   if($null -ne $PasswordListPath)
   {
@@ -60,7 +61,6 @@
   
   $newAADUsers = @()
   $aadusers = Get-AadUserHashTable
-
   
   foreach ($k in $data.Klassen)
   {
@@ -69,7 +69,7 @@
     {
       foreach ($kl in $kg.Klassenliste)
       {
-        $upn = Get-Upn -vorname ($kl.Vorname) -nachname ($kl.Familienname) -gebdat ($kl.GebDatum) -format $Format
+        $upn = Get-Upn -vorname ($kl.Vorname) -nachname ($kl.Familienname) -gebdat ($kl.GebDatum) -klasse ($k.Klassenname) -format $Format
         if (!$aadusers.ContainsKey($upn)) 
         {
           $klasse = $k.Klassenname
@@ -79,8 +79,12 @@
           $plz = $kl.PLZ
           $ort = $kl.Ort
           $oldflag = $false
+          $vorname = $kl.Vorname
+          $nachname = $kl.Familienname
+          $gebdat = $kl.GebDatum
         
-          $pass = (Get-RandomPassword(11).ToString()) + "!"
+          if($PassForAllUsers -ne $null)
+          {$pass = $PassForAllUsers} else {$pass = (Get-RandomPassword(11).ToString()) + '!'}
            
           $luser = New-Object psobject
       
@@ -99,8 +103,8 @@
           {
             Write-Host "[CREATE] Create user $vorname $nachname"
         
-            $aad = New-AzureADUser -DisplayName ("$vorname $nachname") -GivenName $vorname -Surname $nachname -UserPrincipalName $upn -PasswordProfile $PasswordProfile -MailNickName $upn.Split("@")[0] -AccountEnabled $true -UsageLocation DE
-            Set-AzureADUserLicense -ObjectId $aad.ObjectId -AssignedLicenses $LicensesToAssign      
+            $aad = New-AzureADUser -DisplayName ("$vorname $nachname") -GivenName $vorname -Surname $nachname -UserPrincipalName $upn -PasswordProfile $PasswordProfile -MailNickName $upn.Split('@')[0] -AccountEnabled $true -UsageLocation DE
+            Set-AzureADUserLicense -ObjectId $aad.ObjectId -AssignedLicenses $LicensesToAssign
           
             $luser | Add-Member -MemberType NoteProperty -Name UPN -Value $aad.UserPrincipalName
           } else {
