@@ -19,6 +19,13 @@
       {1} = Lastname
       {2} = Birthday
 
+      .Parameter PassFormat
+      Password Format "{0}{1}{2}{3}!"
+      {0} = First three letters of firstname
+      {1} = First three letters of surname
+      {2} = birthday without dots
+      {3} = class name like: 5a
+
       .Parameter PasswordListPath
       Path to .csv file with exisiting passwords. Structure (vorname,nachname,pass)
 
@@ -44,6 +51,7 @@
         Mandatory = $true
     )]
     $Format,
+    $PassFormat,
     $PassForAllUsers,
     $PasswordListPath,
     $WhatIf = $false
@@ -84,7 +92,17 @@
           $gebdat = $kl.GebDatum
         
           if($PassForAllUsers -ne $null)
-          {$pass = $PassForAllUsers} else {$pass = (Get-RandomPassword(11).ToString()) + '!'}
+          {
+            $pass = $PassForAllUsers
+          } 
+          elseif($PassFormat -ne $null)
+          {
+            $pass = $PassFormat -f (Remove-DiacriticsAndSpaces -inputString $vorname.substring(0,3)),(Remove-DiacriticsAndSpaces -inputString $nachname.substring(0,3)),$gebdat.replace(".","")
+          }
+          else 
+          {
+            $pass = (Get-RandomPassword(11).ToString()) + '!'
+          }
            
           $luser = New-Object psobject
       
@@ -129,6 +147,6 @@
     }
   }
   
-  $newAADUsers | Export-Csv -Path $AADUserOutput -Encoding UTF8
+  $newAADUsers | Export-Csv -Path $AADUserOutput -Encoding UTF8 -Delimiter ";"
   return
 }

@@ -78,6 +78,6 @@
     }
   }
   
-  $outs | Export-Csv -Path $AADUserOutput -Encoding UTF8
+  $outs | Export-Csv -Path $AADUserOutput -Encoding UTF8 -Delimiter ";"
   return 
 }

@@ -87,18 +87,19 @@ function Remove-LegacyUsers
 
       .Example
       # Archives teams
-      Remove-LegacyUsers -data $data -Format "{0}.{1}.{2}.schueler@schule.tld" -NoDelte @{'marina.mueller.2222.schueler@schule.tld'='';} -WhatIf $true -Force $true
+      Remove-LegacyUsers -data $data -Format "{0}.{1}.{2}.schueler@schule.tld" -NoDelte @{'marina.mueller.2222.schueler@schule.tld'='';} -WhatIf $true
   #>
   param
   (
     [Parameter(Mandatory=$true)]$data,
     [Parameter(Mandatory=$true)]$Format,
+    [String]$SchuelerPattern="schueler",
     [bool]$Force=$false,
     [HashTable]$NoDelte = @{},
     $WhatIf = $false
   )
     
-  $aadusers = Get-AzureADUser -All $true
+  $aadusers = Get-AzureADUser -All:$true
   $asvusers = @{}
   
   foreach($k in $data.Klassen)
@@ -119,7 +120,7 @@ function Remove-LegacyUsers
   $noasvhit = @{}
   foreach ($aad in $aadusers)
   {
-    if( (!$asvusers.ContainsKey($aad.UserPrincipalName)) -and (!$NoDelte.Contains($aad.UserPrincipalname)) -and ($aad.UserPrincipalName -match "schueler") )
+    if( (!$asvusers.ContainsKey($aad.UserPrincipalName)) -and (!$NoDelte.Contains($aad.UserPrincipalname)) -and ($aad.UserPrincipalName -match SchuelerPattern) )
     {
       $noasvhit.Add($aad.UserPrincipalName, $aad)
     }

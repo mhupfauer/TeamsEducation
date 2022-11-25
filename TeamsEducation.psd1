@@ -14,7 +14,7 @@
 RootModule = 'loader.psm1'
 
 # Version Number
-ModuleVersion = '0.9.5'
+ModuleVersion = '0.9.6'
 
 # Unique Module ID
 GUID = '6d939bc7-10d8-4fba-9ffe-d24c88e892c1'
@@ -26,7 +26,7 @@ Author = 'Markus Hupfauer'
 CompanyName = 'XITASO GmbH'
 
 # Copyright
-Copyright = '(c) 2020 XITASO GmbH. All rights reserved.'
+Copyright = '(c) 2022 XITASO GmbH. All rights reserved.'
 
 # Module Description
 Description = 'Migriert ASV Daten des Bundeslands Bayern zu Office 365.
@@ -65,7 +65,8 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = '* 0.9.1 => Added functionality to retire teams from the previous school year.
+        ReleaseNotes = '* 0.9.6 => Current iteration
+* 0.9.1 => Added functionality to retire teams from the previous school year.
 * 0.9.2 => Added functionality to retire users from the previous school year.
            Stability improvements.
 * 0.9.3 => Added ability to create senior classes and map users propperly

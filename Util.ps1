@@ -173,6 +173,7 @@ function New-BroadcastMessage {
 
   param(
     $user_pattern,
+    $sender_uid,
     $message
   )
 
@@ -187,7 +188,7 @@ function New-BroadcastMessage {
     {
       "@odata.type": "#microsoft.graph.aadUserConversationMember",
       "roles": ["owner"],
-      "user@odata.bind": "https://graph.microsoft.com/beta/users('69f22a03-0a86-4ab3-8745-7a8d6268ac50')"
+      "user@odata.bind": "https://graph.microsoft.com/beta/users('$($sender_uid)')"
     },
     {
       "@odata.type": "#microsoft.graph.aadUserConversationMember",

@@ -32,7 +32,7 @@ function transformAsvData
     $koppel = $true
     if($null -ne $i.koppel) 
     { 
-      $koppel = $i.koppel.is_pseudokoppel."#cdata-section"
+      $koppel = [System.Convert]::ToBoolean($i.koppel.is_pseudokoppel."#cdata-section")
     }
     
     $objin = New-Object -TypeName PSObject
@@ -42,7 +42,8 @@ function transformAsvData
     $objin | Add-Member -MemberType NoteProperty -Name KlassenGruppeId -Value $i.klassengruppe_id
     $objin | Add-Member -MemberType NoteProperty -Name FachId -Value $i.fach_id
     $objin | Add-Member -MemberType NoteProperty -Name Bezeichnung -Value $i.bezeichnung."#cdata-section"    
-    $objin | Add-Member -MemberType NoteProperty -Name IsPseudoKoppel -Value ([System.Convert]::ToBoolean($koppel))
+    $objin | Add-Member -MemberType NoteProperty -Name IsPseudoKoppel -Value ($koppel)
+  
     
     $unterrichts += $objin
   }
@@ -76,25 +77,28 @@ function transformAsvData
         $vorname = ($ss.rufname."#cdata-section").Replace(" ","-")
         $schuelerdata | Add-Member -MemberType NoteProperty -Name Vorname -Value $vorname
         
+        $realname = ($ss.vornamen."#cdata-section").Replace(" ","-")
+        $schuelerdata | Add-Member -MemberType NoteProperty -Name realname -Value $realname
+        
         $familienname = $ss.familienname."#cdata-section".Replace(" ","-")
         $schuelerdata | Add-Member -MemberType NoteProperty -Name Familienname -Value $familienname
         
         $schuelerdata | Add-Member -MemberType NoteProperty -Name GebDatum -Value $ss.geburtsdatum."#cdata-section"
         
-        $anschriftstext = $ss.schueleranschriften.schueleranschrift[0].anschrift.anschrifttext.'#cdata-section'
-        $schuelerdata | Add-Member -MemberType NoteProperty -Name Anschriftstext -Value $anschriftstext
+        #$anschriftstext = $ss.schueleranschriften.schueleranschrift[0].anschrift.anschrifttext.'#cdata-section'
+        #$schuelerdata | Add-Member -MemberType NoteProperty -Name Anschriftstext -Value $anschriftstext
         
-        $strasse = $ss.schueleranschriften.schueleranschrift[0].anschrift.strasse.'#cdata-section'
-        $schuelerdata | Add-Member -MemberType NoteProperty -Name Strasse -Value $strasse
+        #$strasse = $ss.schueleranschriften.schueleranschrift[0].anschrift.strasse.'#cdata-section'
+        #$schuelerdata | Add-Member -MemberType NoteProperty -Name Strasse -Value $strasse
         
-        $ort = $ss.schueleranschriften.schueleranschrift[0].anschrift.ortsbezeichnung.'#cdata-section'
-        $schuelerdata | Add-Member -MemberType NoteProperty -Name Ort -Value $ort
+        #$ort = $ss.schueleranschriften.schueleranschrift[0].anschrift.ortsbezeichnung.'#cdata-section'
+        #$schuelerdata | Add-Member -MemberType NoteProperty -Name Ort -Value $ort
         
-        $plz = $ss.schueleranschriften.schueleranschrift[0].anschrift.postleitzahl.'#cdata-section'
-        $schuelerdata | Add-Member -MemberType NoteProperty -Name PLZ -Value $plz
+        #$plz = $ss.schueleranschriften.schueleranschrift[0].anschrift.postleitzahl.'#cdata-section'
+        #$schuelerdata | Add-Member -MemberType NoteProperty -Name PLZ -Value $plz
         
-        $hsnr = $ss.schueleranschriften.schueleranschrift[0].anschrift.nummer.'#cdata-section'
-        $schuelerdata | Add-Member -MemberType NoteProperty -Name HausNummer -Value $hsnr
+        #$hsnr = $ss.schueleranschriften.schueleranschrift[0].anschrift.nummer.'#cdata-section'
+        #$schuelerdata | Add-Member -MemberType NoteProperty -Name HausNummer -Value $hsnr
         
         $besfaecher = @(); $ss.besuchte_faecher | % { $_.besuchtes_fach.unterrichtselemente | % {$besfaecher += $_.unterrichtselement_id}}
         $schuelerdata | Add-Member -MemberType NoteProperty -Name BesuchteFaecher -Value ($besfaecher)

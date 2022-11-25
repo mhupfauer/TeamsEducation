@@ -5,7 +5,7 @@
     [Parameter(Mandatory=$true)]
     $data
   )
-  $klassendata = @{}
+  $klassendata = [hashtable]::new()
   foreach ($k in $data.Klassen)
   {
     foreach ($kg in $k.KlassenGruppen)
@@ -34,7 +34,7 @@ function Generate-SchuelerIdToObjTable()
     $aadusers
   )
 
-  $SchuelerIdToObjTable = @{}
+  $SchuelerIdToObjTable = [hashtable]::new()
   
   foreach($klasse in $data.Klassen)
   {
@@ -65,7 +65,7 @@ function Generate-TeacherIdToObjTable()
     $aadusers
   )
 
-  $TeacherIdToObjTable = @{}
+  $TeacherIdToObjTable = [hashtable]::new()
   
   foreach($teacher in $data.Lehrer)
   {
@@ -84,7 +84,7 @@ function Generate-CoursesStudentTbl
     $data
   )
   
-  $CourseStudentMap = @{}
+  $CourseStudentMap = [hashtable]::new()
   
   foreach($kl in $data.Klassen.Klassengruppen.Klassenliste)
   {
@@ -154,7 +154,7 @@ function Start-ClassMigration
   if(!$WhatIf -and $DebugMode){throw "Debug and WhatIf have to be enabled simultaniously"}
 
   $allusers = Get-AadUserHashTable
-  $allclasses = @{}; Get-MgGroup -All | % { if(-not $allclasses.ContainsKey($_.DisplayName)){ $allclasses.Add($_.DisplayName, $_) } }
+  $allclasses = [hashtable]::new(); Get-MgGroup -All | % { if(-not $allclasses.ContainsKey($_.DisplayName)){ $allclasses.Add($_.DisplayName, $_) } }
   
   $groupToClass = Generate-ClassToGroupHashTable -data $Data
 
@@ -163,7 +163,7 @@ function Start-ClassMigration
   
   $unterrichtsElementToSchueler = Generate-CoursesStudentTbl -data $Data
   
-  $out = @{}
+  $out = [hashtable]::new()
   $Data.Unterrichtselemente | % {
     
     $klasse = $groupToClass.($_.KlassenGruppeId)
@@ -172,7 +172,8 @@ function Start-ClassMigration
       Write-Host "[DBG] NO class found for id: $($_.KlassenGruppeId)"
     }
     
-    if( $out.ContainsKey($_.Bezeichnung) )
+    if( $out.keys -ccontains $_.Bezeichnung )
+    #if($out.ContainsKey($_.Bezeichnung))
     {
       ( $out.($_.Bezeichnung) ).Unterrichtselemente += @(($_.Id))
     }
@@ -190,14 +191,15 @@ function Start-ClassMigration
     }
   }
   
-  $created_teams = @{}
-  if($WhatIf){ $DbgOut = @{} }
+  
+  $created_teams = [hashtable]::new()
+  if($WhatIf){ $DbgOut = [hashtable]::new() }
   foreach($o in $out.GetEnumerator()) 
   {
     if($Skip12 -and $o.Value.Klasse -match "^12$"){continue}
     if( $o.Value.Klasse -match "^(11|12).*$" )
     {
-      $dn = "[{0}] {1} - {2}" -f $o.Value.Klasse,$o.Value.Bezeichnung,$o.Value.Fach
+      $dn = "{0} - {1}" -f $o.Value.Bezeichnung,$o.Value.Fach
     }
     elseif( !$o.Value.Koppel )
     {
@@ -208,19 +210,24 @@ function Start-ClassMigration
       $dn = "{0} - {1}" -f ($o.Value.Klasse),($o.Value.Fach)
     }
     
-    if($allclasses.ContainsKey($dn) -and !$DebugMode)
+    if($allclasses.keys -ccontains $dn -and !$DebugMode)
     {
       continue
     }  
     
-    if(($teacherToObj.($o.Value.Lehrkraft) -eq $null) -or ($teacher -eq $null))
+    if($o.Value.Lehrkraft -ne $null)
     {
-      $teacher = $FallbackOwner
+      if(($teacherToObj.($o.Value.Lehrkraft) -eq $null) -or ($teacher -eq $null))
+      {
+        $teacher = $FallbackOwner
+      } else {
+        $teacher = ($teacherToObj.($o.Value.Lehrkraft))[0]
+      }
     } else {
-      $teacher = ($teacherToObj.($o.Value.Lehrkraft))[0]
+      $teacher = $FallbackOwner
     }
     
-    if(! $created_teams.ContainsKey($dn))
+    if(!($created_teams.keys -ccontains $dn))
     {
       if(!$WhatIf)
       {
